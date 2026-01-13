@@ -1,0 +1,428 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===================================
+   Multi-Agent Orchestration Design System
+   Based on Salesforce Lightning + Modern Glassmorphism
+   =================================== */
+
+:root {
+  /* Core Salesforce Colors */
+  --sf-blue-50: #EAF5FE;
+  --sf-blue-100: #CAE6FC;
+  --sf-blue-200: #9FD2F9;
+  --sf-blue-300: #6DBEF5;
+  --sf-blue-400: #3EABF0;
+  --sf-blue-500: #0176D3;
+  --sf-blue-600: #0B5CAB;
+  --sf-blue-700: #014486;
+  
+  /* Grays */
+  --sf-gray-50: #F8FAFC;
+  --sf-gray-100: #F1F5F9;
+  --sf-gray-200: #E2E8F0;
+  --sf-gray-300: #CBD5E1;
+  --sf-gray-400: #94A3B8;
+  --sf-gray-500: #64748B;
+  --sf-gray-600: #475569;
+  --sf-gray-700: #334155;
+  --sf-gray-800: #1E293B;
+  
+  /* Status Colors */
+  --sf-green-500: #22C55E;
+  --sf-red-400: #F87171;
+  --sf-red-500: #EF4444;
+  --sf-orange-400: #FB923C;
+  --sf-orange-500: #F97316;
+  
+  /* Trust Boundary Colors */
+  --tb-soma: #3B82F6;      /* Blue - Single Org */
+  --tb-moma: #10B981;      /* Emerald - Multi Org */
+  --tb-3p: #F59E0B;        /* Amber - Third Party */
+  
+  /* Agent Type Colors */
+  --agent-native: #3B82F6;
+  --agent-shared: #10B981;
+  --agent-3p: #F59E0B;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
+}
+
+/* Base Styles */
+body {
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===================================
+   Card Components
+   =================================== */
+
+.sf-card {
+  @apply bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-sm;
+}
+
+.sf-card-glass {
+  @apply bg-white/70 backdrop-blur-md rounded-xl border border-white/20 shadow-lg;
+}
+
+/* ===================================
+   Button Components
+   =================================== */
+
+.sf-button-primary {
+  @apply px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium rounded-lg 
+         shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 
+         transition-all duration-200 hover:-translate-y-0.5;
+}
+
+.sf-button-neutral {
+  @apply px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg 
+         hover:bg-slate-50 hover:border-slate-300 transition-all duration-200;
+}
+
+.sf-button-danger {
+  @apply px-4 py-2 bg-red-500 text-white font-medium rounded-lg 
+         shadow-md shadow-red-200 hover:shadow-lg hover:shadow-red-300 
+         transition-all duration-200;
+}
+
+/* ===================================
+   Form Components
+   =================================== */
+
+.sf-input {
+  @apply w-full px-4 py-2 bg-white/80 border border-slate-200 rounded-lg 
+         text-slate-700 placeholder:text-slate-400
+         focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400
+         transition-all duration-200;
+}
+
+.sf-select {
+  @apply px-3 py-2 bg-white/80 border border-slate-200 rounded-lg 
+         text-sm text-slate-700
+         focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400
+         cursor-pointer transition-all duration-200;
+}
+
+/* ===================================
+   Badge Components
+   =================================== */
+
+.sf-badge-success {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+         bg-emerald-100 text-emerald-700 border border-emerald-200;
+}
+
+.sf-badge-error {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+         bg-red-100 text-red-700 border border-red-200;
+}
+
+.sf-badge-warning {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+         bg-amber-100 text-amber-700 border border-amber-200;
+}
+
+.sf-badge-info {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+         bg-blue-100 text-blue-700 border border-blue-200;
+}
+
+.sf-badge-neutral {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+         bg-slate-100 text-slate-700 border border-slate-200;
+}
+
+/* ===================================
+   Trust Boundary Styles
+   =================================== */
+
+.trust-boundary-soma {
+  @apply border-2 border-blue-400 bg-blue-50/50 rounded-xl;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+}
+
+.trust-boundary-moma {
+  @apply border-2 border-emerald-400 border-dashed bg-emerald-50/50 rounded-xl;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+}
+
+.trust-boundary-3p {
+  @apply border-2 border-amber-400 border-dotted bg-amber-50/50 rounded-xl;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+}
+
+/* ===================================
+   Agent Node Styles
+   =================================== */
+
+.agent-node-native {
+  @apply border-2 border-blue-400 bg-blue-50;
+}
+
+.agent-node-shared {
+  @apply border-2 border-emerald-400 border-dashed bg-emerald-50;
+}
+
+.agent-node-3p {
+  @apply border-2 border-amber-400 border-dotted bg-amber-50;
+}
+
+.agent-node-supervisor {
+  @apply ring-2 ring-amber-300 ring-offset-2 border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50;
+}
+
+/* ===================================
+   Flow Visualization
+   =================================== */
+
+.flow-node {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flow-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+.flow-edge {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: dash 2s ease-in-out forwards;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ===================================
+   Animation Utilities
+   =================================== */
+
+.animate-error-pulse {
+  animation: error-pulse 2s ease-in-out infinite;
+}
+
+@keyframes error-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.animate-success-glow {
+  animation: success-glow 2s ease-in-out infinite;
+}
+
+@keyframes success-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+}
+
+.animate-data-flow {
+  animation: data-flow 1.5s linear infinite;
+}
+
+@keyframes data-flow {
+  0% {
+    stroke-dashoffset: 20;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ===================================
+   Supervisor Visualization Specific
+   =================================== */
+
+.supervisor-hub {
+  @apply relative;
+  background: radial-gradient(circle at center, rgba(251, 191, 36, 0.1) 0%, transparent 70%);
+}
+
+.supervisor-spoke {
+  @apply absolute;
+  transform-origin: center center;
+}
+
+.identity-flow-line {
+  stroke-dasharray: 5, 5;
+  animation: identity-flow 1s linear infinite;
+}
+
+@keyframes identity-flow {
+  0% {
+    stroke-dashoffset: 10;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ===================================
+   Network Graph Styles
+   =================================== */
+
+.network-node {
+  @apply transition-all duration-300;
+}
+
+.network-node:hover {
+  @apply scale-110;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+}
+
+.network-edge {
+  stroke-linecap: round;
+  transition: stroke-width 0.2s ease;
+}
+
+.network-edge:hover {
+  stroke-width: 3;
+}
+
+.network-edge-broken {
+  stroke: var(--sf-red-500);
+  stroke-dasharray: 8, 4;
+  animation: broken-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes broken-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ===================================
+   Latency Bar Styles
+   =================================== */
+
+.latency-bar {
+  @apply h-6 rounded-lg overflow-hidden bg-slate-100 flex;
+}
+
+.latency-segment {
+  @apply flex items-center justify-center text-xs font-medium text-white;
+  transition: width 0.5s ease-out;
+}
+
+.latency-gateway { @apply bg-purple-400; }
+.latency-supervisor { @apply bg-amber-400; }
+.latency-parallel { @apply bg-emerald-400; }
+.latency-serial { @apply bg-blue-400; }
+.latency-external { @apply bg-orange-400; }
+
+/* ===================================
+   Modal & Panel Styles
+   =================================== */
+
+.shadow-sf-modal {
+  box-shadow: 
+    -4px 0 6px -1px rgba(0, 0, 0, 0.1),
+    -10px 0 15px -3px rgba(0, 0, 0, 0.1),
+    0 0 40px -5px rgba(99, 102, 241, 0.2);
+}
+
+/* ===================================
+   Scrollbar Styling
+   =================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+/* ===================================
+   Custom Gradient Backgrounds
+   =================================== */
+
+.gradient-soma {
+  background: linear-gradient(135deg, #EBF4FF 0%, #C3DAFE 100%);
+}
+
+.gradient-moma {
+  background: linear-gradient(135deg, #ECFDF5 0%, #A7F3D0 100%);
+}
+
+.gradient-3p {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FDE68A 100%);
+}
+
+/* ===================================
+   Glass Effect Utilities
+   =================================== */
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.glass-dark {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ===================================
+   Responsive Utilities
+   =================================== */
+
+@media (max-width: 768px) {
+  .sf-card {
+    @apply rounded-lg;
+  }
+  
+  .flow-node {
+    @apply text-sm;
+  }
+}
+
+/* ===================================
+   Print Styles
+   =================================== */
+
+@media print {
+  .sf-card {
+    @apply shadow-none border;
+  }
+  
+  .animate-error-pulse,
+  .animate-success-glow,
+  .animate-data-flow {
+    animation: none;
+  }
+}
+
