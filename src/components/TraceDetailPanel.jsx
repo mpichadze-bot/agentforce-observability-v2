@@ -101,7 +101,48 @@ function TraceDetailPanel({ trace, onClose }) {
       {/* Middle Panel - Intent Analysis or Interaction Summary/Trace/Graph */}
       {activeTab === 'intent' ? (
         <div className="flex-1 flex flex-col min-w-[500px] bg-white">
-          <IntentAnalysisPanel trace={trace} />
+          <IntentAnalysisPanel 
+            trace={trace} 
+            onErrorClick={(errorCode) => {
+              // Switch to trace view
+              setActiveTab('trace');
+              // Find and expand spans with this error
+              const errorSpanIds = findSpansWithError(trace, errorCode);
+              if (errorSpanIds.length > 0) {
+                // Expand all parent spans to show the error
+                const expandedSet = new Set(expandedItems);
+                errorSpanIds.forEach(spanId => {
+                  expandedSet.add(spanId);
+                  // Also expand parent spans recursively
+                  let currentSpan = findSpanById(trace, spanId);
+                  while (currentSpan && currentSpan.parent_span_id) {
+                    expandedSet.add(currentSpan.parent_span_id);
+                    currentSpan = findSpanById(trace, currentSpan.parent_span_id);
+                  }
+                });
+                setExpandedItems(expandedSet);
+                // Select the first error span
+                setTimeout(() => {
+                  const traceItem = traceItems.find(item => item.id === errorSpanIds[0]);
+                  if (traceItem) {
+                    setSelectedAction(traceItem);
+                    // Scroll to the error element
+                    setTimeout(() => {
+                      const errorElement = document.querySelector(`[data-span-id="${errorSpanIds[0]}"]`);
+                      if (errorElement) {
+                        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Highlight the error briefly
+                        errorElement.classList.add('bg-red-50', 'ring-2', 'ring-red-300');
+                        setTimeout(() => {
+                          errorElement.classList.remove('bg-red-50', 'ring-2', 'ring-red-300');
+                        }, 2000);
+                      }
+                    }, 100);
+                  }
+                }, 100);
+              }
+            }}
+          />
         </div>
       ) : (
         <div className={`flex-1 flex flex-col min-w-[500px] bg-white ${activeTab === 'graph' ? 'max-w-none' : ''}`}>
@@ -861,6 +902,7 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: index * 0.02 }}
+        data-span-id={item.id}
         className={`flex items-center gap-2 py-2.5 px-0 border-b border-gray-100 cursor-pointer transition-colors group ${
           isSelected ? 'bg-blue-50' : 
           depth === 0 ? 'hover:bg-gray-50 bg-white' :
@@ -1146,8 +1188,68 @@ function formatJSONForPRD(selectedAction) {
   return jsonStructure;
 }
 
+// Helper function to find spans with a specific error code
+function findSpansWithError(trace, errorCode) {
+  const spanIds = [];
+  if (!trace.spans) return spanIds;
+  
+  const checkSpan = (span) => {
+    const isError = span.status === 'ERROR' || span.status === 'FAILURE' || span.statusEnum === 'FAILURE';
+    if (isError) {
+      const spanErrorCode = span.attributes?.['error.code'] || span.attributes?.['errorCode'] || span.errorCode;
+      const httpStatus = span.attributes?.['http.status_code'] || span.attributes?.['http.statusCode'];
+      const errorMessage = span.attributes?.['error.message'] || span.attributes?.['errorMessage'] || span.errorMessage;
+      
+      let matches = false;
+      if (spanErrorCode === errorCode) matches = true;
+      if (httpStatus && `HTTP_${httpStatus}` === errorCode) matches = true;
+      if (!matches && errorMessage) {
+        const msg = errorMessage.toLowerCase();
+        if (errorCode === 'TIMEOUT' && msg.includes('timeout')) matches = true;
+        else if (errorCode === 'CONNECTION_REFUSED' && (msg.includes('connection') || msg.includes('refused'))) matches = true;
+        else if (errorCode === 'SCHEMA_VIOLATION' && msg.includes('schema')) matches = true;
+        else if (errorCode === 'LOOP_DETECTED' && (msg.includes('loop') || msg.includes('circular'))) matches = true;
+      }
+      
+      if (matches && span.span_id) {
+        spanIds.push(span.span_id);
+      }
+    }
+    
+    // Check nested spans
+    if (span.children) {
+      span.children.forEach(child => checkSpan(child));
+    }
+  };
+  
+  trace.spans.forEach(span => checkSpan(span));
+  return spanIds;
+}
+
+// Helper function to find a span by ID
+function findSpanById(trace, spanId) {
+  if (!trace.spans) return null;
+  
+  const searchSpan = (span) => {
+    if (span.span_id === spanId) return span;
+    if (span.children) {
+      for (const child of span.children) {
+        const found = searchSpan(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  
+  for (const span of trace.spans) {
+    const found = searchSpan(span);
+    if (found) return found;
+  }
+  return null;
+}
+
 // Intent Analysis Panel Component
-function IntentAnalysisPanel({ trace }) {
+function IntentAnalysisPanel({ trace, onErrorClick }) {
   const totalTurns = trace.turnCount || 0;
   const avgLatency = trace.duration ? Math.round(trace.duration / (totalTurns || 1)) : 0;
   const intentElapsedTime = trace.duration ? formatDuration(trace.duration) : '00:00';
@@ -1313,9 +1415,14 @@ function IntentAnalysisPanel({ trace }) {
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {errors.map((error, idx) => (
-                    <span key={idx} className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700 rounded border border-red-200">
+                    <button
+                      key={idx}
+                      onClick={() => onErrorClick && onErrorClick(error)}
+                      className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700 rounded border border-red-200 hover:bg-red-100 hover:border-red-300 cursor-pointer transition-colors"
+                      title={`Click to view error in trace: ${error}`}
+                    >
                       {error}
-                    </span>
+                    </button>
                   ))}
                 </div>
               </div>
