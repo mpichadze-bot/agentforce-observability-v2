@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/agentforce-observability-v2/',
+  base: process.env.NODE_ENV === 'production' ? '/agentforce-observability-v2/' : '/',
   server: {
-    port: 5180,
+    port: 3000,
     open: true
   }
 })
