@@ -1159,6 +1159,61 @@ function IntentAnalysisPanel({ trace }) {
   const intentSummary = trace.intentSummary || 'No intent summary available.';
   const rootAgent = trace.rootAgent || 'Unknown Agent';
   
+  // Extract errors from trace
+  const errors = useMemo(() => {
+    const errorSet = new Set();
+    if (trace.spans) {
+      trace.spans.forEach(span => {
+        // Check for error status
+        if (span.status === 'ERROR' || span.status === 'FAILURE' || span.statusEnum === 'FAILURE') {
+          const errorCode = span.attributes?.['error.code'] || span.attributes?.['errorCode'] || span.errorCode;
+          const errorMessage = span.attributes?.['error.message'] || span.attributes?.['errorMessage'] || span.errorMessage;
+          const httpStatus = span.attributes?.['http.status_code'] || span.attributes?.['http.statusCode'];
+          const toolName = span.attributes?.['tool.name'] || span.attributes?.['mcp.tool.name'] || span.name;
+          
+          if (errorCode) {
+            errorSet.add(errorCode);
+          }
+          if (httpStatus && httpStatus >= 400) {
+            errorSet.add(`HTTP_${httpStatus}`);
+          }
+          if (errorMessage && !errorCode && !httpStatus) {
+            // Extract error type from message
+            const msg = errorMessage.toLowerCase();
+            if (msg.includes('timeout')) errorSet.add('TIMEOUT');
+            else if (msg.includes('connection') || msg.includes('refused')) errorSet.add('CONNECTION_REFUSED');
+            else if (msg.includes('schema')) errorSet.add('SCHEMA_VIOLATION');
+            else if (msg.includes('loop') || msg.includes('circular')) errorSet.add('LOOP_DETECTED');
+            else if (toolName) errorSet.add(`${toolName}_ERROR`);
+          }
+        }
+        // Check nested spans
+        if (span.children) {
+          span.children.forEach(child => {
+            if (child.status === 'ERROR' || child.status === 'FAILURE' || child.statusEnum === 'FAILURE') {
+              const errorCode = child.attributes?.['error.code'] || child.attributes?.['errorCode'] || child.errorCode;
+              const httpStatus = child.attributes?.['http.status_code'] || child.attributes?.['http.statusCode'];
+              if (errorCode) {
+                errorSet.add(errorCode);
+              }
+              if (httpStatus && httpStatus >= 400) {
+                errorSet.add(`HTTP_${httpStatus}`);
+              }
+            }
+          });
+        }
+      });
+    }
+    // Also check trace-level errors
+    if (trace.status === 'failed' || trace.status === 'error' || trace.statusEnum === 'FAILURE') {
+      const traceErrorCode = trace.errorCode || trace.attributes?.['error.code'];
+      if (traceErrorCode) {
+        errorSet.add(traceErrorCode);
+      }
+    }
+    return Array.from(errorSet);
+  }, [trace]);
+  
   // Generate intent moment ID from trace ID
   const intentMomentId = trace.trace_id || trace.id || 'N/A';
   const sessionDate = useMemo(() => formatSessionDate(trace.timestamp), [trace.timestamp]);
@@ -1243,6 +1298,23 @@ function IntentAnalysisPanel({ trace }) {
                   {actions.map((action, idx) => (
                     <span key={idx} className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-orange-50 text-orange-700 rounded border border-orange-200">
                       {action}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Errors */}
+            {errors.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <p className="text-xs text-gray-500">Errors</p>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {errors.map((error, idx) => (
+                    <span key={idx} className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700 rounded border border-red-200">
+                      {error}
                     </span>
                   ))}
                 </div>
