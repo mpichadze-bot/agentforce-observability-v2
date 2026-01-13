@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Sparkles,
   Phone,
+  LogOut,
 } from 'lucide-react';
 import {
   traces,
@@ -27,12 +28,37 @@ import {
 import TraceDetailPanel from './components/TraceDetailPanel';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import AgentNetworkGraph from './components/AgentNetworkGraph';
+import Login from './components/Login';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedTrace, setSelectedTrace] = useState(null);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [activeView, setActiveView] = useState('list'); // 'list' | 'analytics' | 'supervisor' | 'network'
   const [viewMode, setViewMode] = useState('browse'); // 'browse' | 'session'
+
+  // Check authentication on mount
+  useEffect(() => {
+    const authStatus = localStorage.getItem('isAuthenticated');
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('username');
+    setIsAuthenticated(false);
+  };
+
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   const handleTraceClick = (trace) => {
     setSelectedTrace(trace);
@@ -103,9 +129,18 @@ function App() {
                 <button className="p-2 hover:bg-gray-100 rounded transition-colors">
                   <Bell className="w-4 h-4 text-gray-600" />
                 </button>
-                <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
-                  <User className="w-5 h-5 text-gray-600" />
-                </button>
+                <div className="flex items-center gap-1 border-l border-gray-200 pl-2 ml-1">
+                  <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
+                    <User className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <button 
+                    onClick={handleLogout}
+                    className="p-2 hover:bg-gray-100 rounded transition-colors"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -184,9 +219,18 @@ function App() {
             <button className="p-2 hover:bg-gray-100 rounded transition-colors">
               <Bell className="w-4 h-4 text-gray-600" />
             </button>
-            <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
-              <User className="w-5 h-5 text-gray-600" />
-            </button>
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-2 ml-1">
+              <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
+                <User className="w-5 h-5 text-gray-600" />
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
           </div>
         </div>
 
