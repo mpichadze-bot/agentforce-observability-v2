@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  base: '/agentforce-observability-v2/',
   server: {
     port: 5180,
     open: true
