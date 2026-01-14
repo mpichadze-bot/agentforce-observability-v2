@@ -19,6 +19,8 @@ import {
   Sparkles,
   Phone,
   LogOut,
+  Bot,
+  Wrench,
 } from 'lucide-react';
 import {
   traces,
@@ -475,6 +477,8 @@ function SessionsList({ traces, onTraceClick, selectedTrace }) {
               <SortableHeader label="Response Summary" column="response" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Topics</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Actions</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Sub-Agents</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">MCP</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Intent Tag</th>
               <SortableHeader label="Quality Score" column="quality" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Quality Score Reason</th>
@@ -606,6 +610,43 @@ function SessionRow({ trace, index, isSelected, onClick }) {
         </div>
       </td>
       
+      {/* Sub-Agents */}
+      <td className="px-4 py-3">
+        {(() => {
+          const subAgentInfo = getSubAgentInfo(trace);
+          if (!subAgentInfo.hasSubAgents) {
+            return <span className="text-xs text-gray-400">—</span>;
+          }
+          return (
+            <div className="flex items-center gap-1">
+              <Bot className="w-3.5 h-3.5 text-blue-500" />
+              <span className="text-xs font-medium text-gray-700">{subAgentInfo.count}</span>
+              {subAgentInfo.is3P && (
+                <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-orange-100 text-orange-700 rounded">
+                  3P
+                </span>
+              )}
+            </div>
+          );
+        })()}
+      </td>
+      
+      {/* MCP Invocations */}
+      <td className="px-4 py-3">
+        {(() => {
+          const mcpCount = getMCPCount(trace);
+          if (mcpCount === 0) {
+            return <span className="text-xs text-gray-400">—</span>;
+          }
+          return (
+            <div className="flex items-center gap-1">
+              <Wrench className="w-3.5 h-3.5 text-purple-600" />
+              <span className="text-xs font-medium text-gray-700">{mcpCount}</span>
+            </div>
+          );
+        })()}
+      </td>
+      
       {/* Intent Tag */}
       <td className="px-4 py-3">
         <span className="text-sm text-gray-700">{intentTag}</span>
@@ -632,6 +673,122 @@ function SessionRow({ trace, index, isSelected, onClick }) {
     );
   }
   
+// Helper: Check if trace has sub-agents (A2A handoffs)
+function hasSubAgents(trace) {
+  if (!trace.spans) return false;
+  
+  const checkSpan = (span) => {
+    // Check if this is an A2A handoff
+    if (span.name === 'agent.handoff' || 
+        span.name?.includes('A2A') ||
+        span.attributes?.['rpc.system'] === 'agentforce_a2a' ||
+        span.attributes?.['agent.handoff']) {
+      return true;
+    }
+    // Check nested spans
+    if (span.children) {
+      for (const child of span.children) {
+        if (checkSpan(child)) return true;
+      }
+    }
+    return false;
+  };
+  
+  for (const span of trace.spans) {
+    if (checkSpan(span)) return true;
+  }
+  return false;
+}
+
+// Helper: Get sub-agent count and types
+function getSubAgentInfo(trace) {
+  const subAgents = new Set();
+  const is3P = false;
+  
+  if (!trace.spans) return { hasSubAgents: false, count: 0, is3P: false };
+  
+  const checkSpan = (span) => {
+    if (span.name === 'agent.handoff' || 
+        span.name?.includes('A2A') ||
+        span.attributes?.['rpc.system'] === 'agentforce_a2a') {
+      const agentId = span.attributes?.['handoff.target'] || 
+                     span.attributes?.['agent.id'] || 
+                     span.name;
+      if (agentId) {
+        subAgents.add(agentId);
+      }
+      // Check if 3P (third-party)
+      if (span.attributes?.['trust.boundary'] === '3P' || 
+          span.attributes?.['agent.origin'] === 'external' ||
+          trace.trustBoundary?.type === '3P') {
+        return { is3P: true };
+      }
+    }
+    if (span.children) {
+      for (const child of span.children) {
+        const result = checkSpan(child);
+        if (result?.is3P) return result;
+      }
+    }
+    return null;
+  };
+  
+  for (const span of trace.spans) {
+    const result = checkSpan(span);
+    if (result?.is3P) {
+      return { hasSubAgents: subAgents.size > 0, count: subAgents.size, is3P: true };
+    }
+  }
+  
+  return { hasSubAgents: subAgents.size > 0, count: subAgents.size, is3P: false };
+}
+
+// Helper: Check if trace has MCP invocations
+function hasMCPInvocations(trace) {
+  if (!trace.spans) return false;
+  
+  const checkSpan = (span) => {
+    // Check if this is an MCP tool execution
+    if (span.name === 'MCP.tool.execution' ||
+        span.attributes?.['mcp.tool.name'] ||
+        span.attributes?.['mcp.operation']) {
+      return true;
+    }
+    // Check nested spans
+    if (span.children) {
+      for (const child of span.children) {
+        if (checkSpan(child)) return true;
+      }
+    }
+    return false;
+  };
+  
+  for (const span of trace.spans) {
+    if (checkSpan(span)) return true;
+  }
+  return false;
+}
+
+// Helper: Get MCP invocation count
+function getMCPCount(trace) {
+  let count = 0;
+  if (!trace.spans) return count;
+  
+  const checkSpan = (span) => {
+    if (span.name === 'MCP.tool.execution' ||
+        span.attributes?.['mcp.tool.name'] ||
+        span.attributes?.['mcp.operation']) {
+      count++;
+    }
+    if (span.children) {
+      span.children.forEach(child => checkSpan(child));
+    }
+  };
+  
+  trace.spans.forEach(span => checkSpan(span));
+  return count;
+}
+
 // Helper: Extract topics from trace
 function extractTopics(trace) {
   const topics = [];

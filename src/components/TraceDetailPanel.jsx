@@ -809,6 +809,29 @@ function InteractionSummaryList({ items, onItemClick }) {
                   <span className="text-sm text-blue-600 hover:underline cursor-pointer">
                     {getLabel(item)}
                   </span>
+                  
+                  {/* Sub-Agent Tag */}
+                  {item.type === 'agent' && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200">
+                      <Bot className="w-3 h-3" />
+                      Sub-Agent
+                    </span>
+                  )}
+                  
+                  {/* 3P Tag */}
+                  {item.type === 'agent' && (item.data?.['trust.boundary'] === '3P' || item.data?.['agent.origin'] === 'external') && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-orange-100 text-orange-700 rounded">
+                      3P
+                    </span>
+                  )}
+                  
+                  {/* MCP Tag */}
+                  {item.type === 'mcp' && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200">
+                      <Wrench className="w-3 h-3" />
+                      MCP
+                    </span>
+                  )}
                 </div>
 
                 {/* Error details with search icon */}
