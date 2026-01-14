@@ -196,88 +196,7 @@ function TraceDetailPanel({ trace, onClose }) {
 }
 
 // Session Log Panel Component
-// Helper: Extract sub-agent and MCP calls with latency info
-function extractSubAgentAndMCPCalls(trace) {
-  const calls = [];
-  if (!trace.spans) return calls;
-  
-  // Flatten all spans to find action selections and their subsequent calls
-  const allSpans = [];
-  const flattenSpans = (spans, parentId = null) => {
-    spans.forEach(span => {
-      allSpans.push({ ...span, parentId });
-      if (span.children) {
-        flattenSpans(span.children, span.span_id);
-      }
-    });
-  };
-  flattenSpans(trace.spans);
-  
-  // Find Action Selection spans
-  const actionSelections = allSpans.filter(span => 
-    span.name === 'Action Selection' || 
-    span.type === 'action-selection' ||
-    (span.attributes && span.attributes['action.selected'])
-  );
-  
-  // For each action selection, find the next agent/MCP call
-  actionSelections.forEach(actionSelection => {
-    const actionSelectionTime = actionSelection.start_time || 0;
-    
-    // Find the next agent or MCP call after this action selection
-    const subsequentCalls = allSpans.filter(span => {
-      const isAgent = span.name === 'agent.handoff' || 
-                     span.name?.includes('A2A') ||
-                     span.attributes?.['rpc.system'] === 'agentforce_a2a' ||
-                     (span.attributes?.['handoff.target'] && span.start_time >= actionSelectionTime);
-      const isMCP = span.name === 'MCP.tool.execution' ||
-                    span.attributes?.['mcp.tool.name'] ||
-                    span.attributes?.['mcp.operation'] ||
-                    (span.attributes?.['tool.name'] && span.start_time >= actionSelectionTime);
-      
-      return (isAgent || isMCP) && span.start_time >= actionSelectionTime;
-    });
-    
-    // Get the first call after this action selection (closest in time)
-    if (subsequentCalls.length > 0) {
-      const nextCall = subsequentCalls.sort((a, b) => a.start_time - b.start_time)[0];
-      
-      const isAgent = nextCall.name === 'agent.handoff' || 
-                     nextCall.name?.includes('A2A') ||
-                     nextCall.attributes?.['rpc.system'] === 'agentforce_a2a' ||
-                     nextCall.attributes?.['handoff.target'];
-      
-      const routingOverhead = (nextCall.start_time || 0) - actionSelectionTime;
-      const responseTime = nextCall.duration || 0;
-      const totalTime = routingOverhead + responseTime;
-      
-      calls.push({
-        type: isAgent ? 'sub-agent' : 'mcp',
-        name: isAgent 
-          ? (nextCall.attributes?.['handoff.target'] || nextCall.attributes?.['agent.id'] || 'Sub-Agent')
-          : (nextCall.attributes?.['mcp.tool.name'] || nextCall.attributes?.['tool.name'] || 'MCP Tool'),
-        routingOverhead: Math.max(0, routingOverhead),
-        responseTime,
-        totalTime,
-        startTime: nextCall.start_time || 0,
-        rawResponse: nextCall.attributes?.['response.raw'] || 
-                    nextCall.attributes?.['output.text'] || 
-                    nextCall.attributes?.['mcp.output'] ||
-                    null,
-        synthesizedResponse: nextCall.attributes?.['response.synthesized'] || null,
-        span: nextCall,
-      });
-    }
-  });
-  
-  // Sort by start time
-  calls.sort((a, b) => a.startTime - b.startTime);
-  
-  return calls;
-}
-
 function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
-  
   return (
     <div className="flex flex-col h-full" key={trace.id}>
       {/* Header */}
@@ -349,20 +268,18 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
             </div>
 
             {/* Agent Response with clarification */}
-            <div className="mb-3">
-              <div 
-                className="flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => onMessageClick && onMessageClick('trace')}
-              >
-                <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-3.5 h-3.5 text-blue-600" />
+            <div 
+              className="mb-3 flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => onMessageClick && onMessageClick('trace')}
+            >
+              <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
+                <Bot className="w-3.5 h-3.5 text-blue-600" />
+              </div>
+              <div>
+                <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
+                  Thank you for sharing your user ID, USER12345. Could you also let me know which Pronto product this inquiry is related to, or if it's a general issue?
                 </div>
-                <div>
-                  <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
-                    Thank you for sharing your user ID, USER12345. Could you also let me know which Pronto product this inquiry is related to, or if it's a general issue?
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 5 sec)</p>
-                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 5 sec)</p>
               </div>
             </div>
 
@@ -375,20 +292,18 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
             </div>
 
             {/* Final Agent Response */}
-            <div className="mb-3">
-              <div 
-                className="flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => onMessageClick && onMessageClick('trace')}
-              >
-                <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-3.5 h-3.5 text-blue-600" />
+            <div 
+              className="flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => onMessageClick && onMessageClick('trace')}
+            >
+              <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
+                <Bot className="w-3.5 h-3.5 text-blue-600" />
+              </div>
+              <div>
+                <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
+                  Got it! I'll assist you with insights related to the Restaurant Performance Analytics product. Feel free to ask your questions, and I'll provide as much detail as possible!
                 </div>
-                <div>
-                  <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
-                    Got it! I'll assist you with insights related to the Restaurant Performance Analytics product. Feel free to ask your questions, and I'll provide as much detail as possible!
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 8 sec)</p>
-                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 8 sec)</p>
               </div>
             </div>
           </div>
@@ -407,7 +322,6 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
     </div>
   );
 }
-
 
 // Helper to calculate total turns from trace items
 function calculateTotalTurns(items) {
@@ -615,11 +529,69 @@ function InteractionSummaryPanel({
   );
 }
 
+// Helper: Calculate routing overhead and response time for sub-agent/MCP calls
+function getOrchestrationTiming(item, traceItems) {
+  // Check if this is a sub-agent or MCP call
+  const isSubAgent = item.type === 'agent' && (
+    item.label?.includes('A2A') ||
+    item.data?.['rpc.system'] === 'agentforce_a2a' ||
+    item.data?.['handoff.target'] ||
+    item.data?.['agent.handoff']
+  );
+  const isMCP = item.type === 'mcp' || 
+                item.data?.['mcp.tool.name'] ||
+                item.data?.['mcp.operation'];
+  
+  if (!isSubAgent && !isMCP) return null;
+  
+  // Find the Action Selection that precedes this call
+  const itemStartTime = item.data?.start_time || 0;
+  
+  // Find Action Selection spans before this call
+  const findActionSelection = (items, targetTime) => {
+    let lastActionSelection = null;
+    const traverse = (itemList) => {
+      itemList.forEach(it => {
+        const isActionSelection = it.type === 'action-selection' || 
+                                 it.name === 'Action Selection' ||
+                                 (it.data && it.data['action.selected']);
+        const itStartTime = it.data?.start_time || 0;
+        
+        if (isActionSelection && itStartTime < targetTime) {
+          if (!lastActionSelection || itStartTime > lastActionSelection.startTime) {
+            lastActionSelection = {
+              startTime: itStartTime,
+              endTime: itStartTime + (it.duration || 0),
+            };
+          }
+        }
+        
+        if (it.children) {
+          traverse(it.children);
+        }
+      });
+    };
+    traverse(items);
+    return lastActionSelection;
+  };
+  
+  const actionSelection = findActionSelection(traceItems, itemStartTime);
+  
+  if (actionSelection) {
+    const routingOverhead = Math.max(0, itemStartTime - actionSelection.endTime);
+    const responseTime = item.duration || 0;
+    return {
+      routingOverhead,
+      responseTime,
+      totalTime: routingOverhead + responseTime,
+    };
+  }
+  
+  return null;
+}
+
 // Waterfall View Component
 function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
-  // Extract sub-agent and MCP calls with orchestration details
-  const orchestrationCalls = useMemo(() => extractSubAgentAndMCPCalls(trace), [trace]);
-  
   // Flatten all items with their depth for waterfall visualization
   const flattenForWaterfall = (items, depth = 0, result = []) => {
     items.forEach(item => {
@@ -633,43 +605,9 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
 
   const flatItems = useMemo(() => flattenForWaterfall(traceItems), [traceItems]);
   
-  // Merge orchestration calls into the waterfall items
-  const itemsWithOrchestration = useMemo(() => {
-    const merged = [...flatItems];
-    
-    // Add orchestration calls as special items
-    orchestrationCalls.forEach((call, idx) => {
-      const actionSelectionTime = call.startTime - call.routingOverhead;
-      merged.push({
-        id: `orchestration-${call.startTime}-${idx}`,
-        type: call.type === 'sub-agent' ? 'agent' : 'mcp',
-        label: `${call.type === 'sub-agent' ? 'Sub-Agent' : 'MCP'}: ${call.name}`,
-        duration: call.totalTime,
-        depth: 2, // Indent orchestration calls
-        data: {
-          start_time: actionSelectionTime,
-          routingOverhead: call.routingOverhead,
-          responseTime: call.responseTime,
-          totalTime: call.totalTime,
-        },
-        orchestrationCall: call, // Mark as orchestration call
-        status: 'success',
-      });
-    });
-    
-    // Sort by start time
-    merged.sort((a, b) => {
-      const aTime = a.data?.start_time || 0;
-      const bTime = b.data?.start_time || 0;
-      return aTime - bTime;
-    });
-    
-    return merged;
-  }, [flatItems, orchestrationCalls]);
-  
   // Calculate total duration for scaling
   const totalDuration = trace.duration || 
-    Math.max(...itemsWithOrchestration.map(item => (item.data?.start_time || 0) + (item.duration || 0)), 10000);
+    Math.max(...flatItems.map(item => (item.data?.start_time || 0) + (item.duration || 0)), 10000);
 
   const getBarColor = (item) => {
     if (item.status === 'error') return 'bg-red-500';
@@ -711,18 +649,37 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
 
       {/* Waterfall Rows */}
       <div className="space-y-1">
-        {itemsWithOrchestration.map((item, index) => {
+        {flatItems.map((item, index) => {
           const startTime = item.data?.start_time || 0;
           const duration = item.duration || 100;
           const leftPercent = (startTime / totalDuration) * 100;
           const widthPercent = Math.max((duration / totalDuration) * 100, 0.5);
           
-          // Check if this is an orchestration call with routing/response breakdown
-          const isOrchestration = item.orchestrationCall;
-          const routingOverhead = item.data?.routingOverhead || 0;
-          const responseTime = item.data?.responseTime || duration;
-          const routingWidth = isOrchestration ? (routingOverhead / totalDuration) * 100 : 0;
-          const responseWidth = isOrchestration ? (responseTime / totalDuration) * 100 : widthPercent;
+          // Check if this is a sub-agent or MCP call with orchestration timing
+          const orchestrationTiming = getOrchestrationTiming(item, traceItems);
+          const isSubAgent = item.type === 'agent' && (
+            item.label?.includes('A2A') ||
+            item.data?.['rpc.system'] === 'agentforce_a2a' ||
+            item.data?.['handoff.target'] ||
+            orchestrationTiming
+          );
+          const isMCP = item.type === 'mcp' || 
+                       item.data?.['mcp.tool.name'] ||
+                       item.data?.['mcp.operation'];
+          const hasOrchestration = orchestrationTiming && (isSubAgent || isMCP);
+          
+          // Calculate bar widths for split visualization
+          let routingWidth = 0;
+          let responseWidth = widthPercent;
+          let routingStartTime = startTime;
+          
+          if (hasOrchestration) {
+            routingStartTime = startTime - orchestrationTiming.routingOverhead;
+            routingWidth = Math.max((orchestrationTiming.routingOverhead / totalDuration) * 100, 0.1);
+            responseWidth = Math.max((orchestrationTiming.responseTime / totalDuration) * 100, 0.1);
+          }
+          
+          const routingLeftPercent = hasOrchestration ? (routingStartTime / totalDuration) * 100 : leftPercent;
           
           return (
             <motion.div
@@ -747,45 +704,45 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
                     {item.data.turns}t
                   </span>
                 )}
-                {isOrchestration && (
+                {hasOrchestration && (
                   <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">
-                    Routing: {formatDuration(routingOverhead)} | Response: {formatDuration(responseTime)}
+                    Routing: {formatDuration(orchestrationTiming.routingOverhead)} | Response: {formatDuration(orchestrationTiming.responseTime)}
                   </span>
                 )}
               </div>
 
               {/* Timeline Bar */}
               <div className="flex-1 h-6 bg-gray-100 rounded relative">
-                {isOrchestration ? (
+                {hasOrchestration ? (
                   <>
                     {/* Routing Overhead Bar */}
-                    {routingOverhead > 0 && (
+                    {orchestrationTiming.routingOverhead > 0 && (
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${routingWidth}%` }}
                         transition={{ delay: index * 0.02, duration: 0.4 }}
                         className="absolute h-full bg-amber-200 border-r-2 border-amber-300 rounded-l"
-                        style={{ left: `${leftPercent}%` }}
-                        title={`Routing: ${formatDuration(routingOverhead)}`}
+                        style={{ left: `${routingLeftPercent}%` }}
+                        title={`Routing Overhead: ${formatDuration(orchestrationTiming.routingOverhead)}`}
                       />
                     )}
                     {/* Response Time Bar */}
-                    {responseTime > 0 && (
+                    {orchestrationTiming.responseTime > 0 && (
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${responseWidth}%` }}
                         transition={{ delay: index * 0.02 + 0.2, duration: 0.4 }}
-                        className={`absolute h-full ${item.type === 'agent' ? 'bg-blue-500' : 'bg-purple-500'} rounded-r`}
-                        style={{ left: `calc(${leftPercent}% + ${routingWidth}%)` }}
-                        title={`Response: ${formatDuration(responseTime)}`}
+                        className={`absolute h-full ${isSubAgent ? 'bg-blue-500' : 'bg-purple-500'} rounded-r`}
+                        style={{ left: `calc(${routingLeftPercent}% + ${routingWidth}%)` }}
+                        title={`Response Time: ${formatDuration(orchestrationTiming.responseTime)}`}
                       />
                     )}
                     {/* Total Duration label */}
                     <span 
                       className="absolute text-[10px] text-white font-medium px-1 top-1/2 -translate-y-1/2 whitespace-nowrap"
-                      style={{ left: `calc(${leftPercent}% + ${routingWidth}% + ${responseWidth}% / 2 - 50%)` }}
+                      style={{ left: `calc(${routingLeftPercent}% + ${routingWidth}% + ${responseWidth}% / 2 - 50%)` }}
                     >
-                      {formatDuration(duration)}
+                      {formatDuration(orchestrationTiming.totalTime)}
                     </span>
                   </>
                 ) : (
@@ -997,29 +954,6 @@ function InteractionSummaryList({ items, onItemClick }) {
                   <span className="text-sm text-blue-600 hover:underline cursor-pointer">
                     {getLabel(item)}
                   </span>
-                  
-                  {/* Sub-Agent Tag */}
-                  {item.type === 'agent' && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200">
-                      <Bot className="w-3 h-3" />
-                      Sub-Agent
-                    </span>
-                  )}
-                  
-                  {/* 3P Tag */}
-                  {item.type === 'agent' && (item.data?.['trust.boundary'] === '3P' || item.data?.['agent.origin'] === 'external') && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-orange-100 text-orange-700 rounded">
-                      3P
-                    </span>
-                  )}
-                  
-                  {/* MCP Tag */}
-                  {item.type === 'mcp' && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200">
-                      <Wrench className="w-3 h-3" />
-                      MCP
-                    </span>
-                  )}
                 </div>
 
                 {/* Error details with search icon */}
