@@ -277,13 +277,6 @@ function extractSubAgentAndMCPCalls(trace) {
 }
 
 function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
-  const subAgentAndMCPCalls = useMemo(() => extractSubAgentAndMCPCalls(trace), [trace]);
-  
-  const formatLatency = (ms) => {
-    if (ms < 1) return '<1ms';
-    if (ms < 1000) return `${Math.round(ms)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-  };
   
   return (
     <div className="flex flex-col h-full" key={trace.id}>
@@ -411,150 +404,10 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
           </div>
         </div>
       </div>
-      
-      {/* Orchestration Timeline Visualization */}
-      {subAgentAndMCPCalls.length > 0 && (
-        <div className="border-t border-gray-200 bg-white">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900">Orchestration Timeline</h3>
-            <p className="text-xs text-gray-500 mt-1">Sub-Agent and MCP invocations with latency breakdown</p>
-          </div>
-          <div className="p-4">
-            <OrchestrationTimeline calls={subAgentAndMCPCalls} formatLatency={formatLatency} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// Orchestration Timeline Visualization Component
-function OrchestrationTimeline({ calls, formatLatency }) {
-  const [expandedCall, setExpandedCall] = useState(null);
-  const [hoveredCall, setHoveredCall] = useState(null);
-  
-  // Calculate max time for scaling
-  const maxTime = Math.max(...calls.map(call => call.totalTime), 1000);
-  const scaleFactor = 100 / maxTime; // Scale to percentage
-  
-  return (
-    <div className="space-y-2">
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-4 text-xs">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 bg-amber-200 border border-amber-300 rounded" />
-          <span className="text-gray-600">Routing Overhead</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 bg-blue-200 border border-blue-300 rounded" />
-          <span className="text-gray-600">Response Time</span>
-        </div>
-      </div>
-      
-      {/* Timeline bars */}
-      {calls.map((call, idx) => {
-        const callId = `timeline-call-${idx}`;
-        const isExpanded = expandedCall === callId;
-        const isHovered = hoveredCall === callId;
-        const Icon = call.type === 'sub-agent' ? Bot : Wrench;
-        const iconColor = call.type === 'sub-agent' ? 'text-blue-600' : 'text-purple-600';
-        const bgColor = call.type === 'sub-agent' ? 'bg-blue-50' : 'bg-purple-50';
-        const borderColor = call.type === 'sub-agent' ? 'border-blue-200' : 'border-purple-200';
-        
-        const routingWidth = (call.routingOverhead / maxTime) * 100;
-        const responseWidth = (call.responseTime / maxTime) * 100;
-        const totalWidth = routingWidth + responseWidth;
-        
-        return (
-          <div
-            key={callId}
-            className={`border ${borderColor} rounded-lg ${bgColor} overflow-hidden transition-all ${
-              isHovered ? 'shadow-md' : 'shadow-sm'
-            }`}
-            onMouseEnter={() => setHoveredCall(callId)}
-            onMouseLeave={() => setHoveredCall(null)}
-          >
-            {/* Header */}
-            <button
-              onClick={() => setExpandedCall(isExpanded ? null : callId)}
-              className="w-full px-3 py-2.5 flex items-center justify-between hover:opacity-90 transition-opacity"
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <Icon className={`w-4 h-4 ${iconColor} flex-shrink-0`} />
-                <span className="text-xs font-medium text-gray-700 truncate">
-                  {call.type === 'sub-agent' ? 'Sub-Agent' : 'MCP'}: {call.name}
-                </span>
-                <span className="text-[10px] text-gray-500 flex-shrink-0">
-                  Routing: {formatLatency(call.routingOverhead)} | Response: {formatLatency(call.responseTime)} | Total: {formatLatency(call.totalTime)}
-                </span>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {/* Timeline Bar */}
-            <div className="px-3 pb-2">
-              <div className="relative h-6 bg-gray-100 rounded border border-gray-200 overflow-hidden">
-                {/* Routing Overhead Bar */}
-                {call.routingOverhead > 0 && (
-                  <div
-                    className="absolute left-0 top-0 h-full bg-amber-200 border-r border-amber-300"
-                    style={{ width: `${routingWidth}%` }}
-                    title={`Routing: ${formatLatency(call.routingOverhead)}`}
-                  />
-                )}
-                {/* Response Time Bar */}
-                {call.responseTime > 0 && (
-                  <div
-                    className="absolute h-full bg-blue-200 border-r border-blue-300"
-                    style={{ 
-                      left: `${routingWidth}%`,
-                      width: `${responseWidth}%`
-                    }}
-                    title={`Response: ${formatLatency(call.responseTime)}`}
-                  />
-                )}
-                {/* Labels */}
-                <div className="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-medium text-gray-700">
-                  <span>{formatLatency(call.routingOverhead)}</span>
-                  <span>{formatLatency(call.totalTime)}</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Expanded Details */}
-            {isExpanded && (
-              <div className="px-3 pb-3 pt-2 border-t border-gray-200 bg-white space-y-2">
-                {/* Raw Response */}
-                {call.rawResponse && (
-                  <div>
-                    <p className="text-[10px] font-semibold text-gray-500 mb-1">Raw Response:</p>
-                    <div className="px-3 py-2 bg-gray-50 rounded text-xs text-gray-700 border border-gray-200 max-h-32 overflow-y-auto">
-                      {call.rawResponse}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Synthesized Response */}
-                {call.synthesizedResponse && (
-                  <div>
-                    <p className="text-[10px] font-semibold text-gray-500 mb-1">Synthesized Response:</p>
-                    <div className="px-3 py-2 bg-blue-50 rounded text-xs text-gray-700 border border-blue-200 max-h-32 overflow-y-auto">
-                      {call.synthesizedResponse}
-                    </div>
-                  </div>
-                )}
-                
-                {!call.rawResponse && !call.synthesizedResponse && (
-                  <p className="text-xs text-gray-400 italic">No response data available</p>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 // Helper to calculate total turns from trace items
 function calculateTotalTurns(items) {
@@ -764,6 +617,9 @@ function InteractionSummaryPanel({
 
 // Waterfall View Component
 function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
+  // Extract sub-agent and MCP calls with orchestration details
+  const orchestrationCalls = useMemo(() => extractSubAgentAndMCPCalls(trace), [trace]);
+  
   // Flatten all items with their depth for waterfall visualization
   const flattenForWaterfall = (items, depth = 0, result = []) => {
     items.forEach(item => {
@@ -777,9 +633,43 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
 
   const flatItems = useMemo(() => flattenForWaterfall(traceItems), [traceItems]);
   
+  // Merge orchestration calls into the waterfall items
+  const itemsWithOrchestration = useMemo(() => {
+    const merged = [...flatItems];
+    
+    // Add orchestration calls as special items
+    orchestrationCalls.forEach((call, idx) => {
+      const actionSelectionTime = call.startTime - call.routingOverhead;
+      merged.push({
+        id: `orchestration-${call.startTime}-${idx}`,
+        type: call.type === 'sub-agent' ? 'agent' : 'mcp',
+        label: `${call.type === 'sub-agent' ? 'Sub-Agent' : 'MCP'}: ${call.name}`,
+        duration: call.totalTime,
+        depth: 2, // Indent orchestration calls
+        data: {
+          start_time: actionSelectionTime,
+          routingOverhead: call.routingOverhead,
+          responseTime: call.responseTime,
+          totalTime: call.totalTime,
+        },
+        orchestrationCall: call, // Mark as orchestration call
+        status: 'success',
+      });
+    });
+    
+    // Sort by start time
+    merged.sort((a, b) => {
+      const aTime = a.data?.start_time || 0;
+      const bTime = b.data?.start_time || 0;
+      return aTime - bTime;
+    });
+    
+    return merged;
+  }, [flatItems, orchestrationCalls]);
+  
   // Calculate total duration for scaling
   const totalDuration = trace.duration || 
-    Math.max(...flatItems.map(item => (item.data?.start_time || 0) + (item.duration || 0)), 10000);
+    Math.max(...itemsWithOrchestration.map(item => (item.data?.start_time || 0) + (item.duration || 0)), 10000);
 
   const getBarColor = (item) => {
     if (item.status === 'error') return 'bg-red-500';
@@ -821,11 +711,18 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
 
       {/* Waterfall Rows */}
       <div className="space-y-1">
-        {flatItems.map((item, index) => {
+        {itemsWithOrchestration.map((item, index) => {
           const startTime = item.data?.start_time || 0;
           const duration = item.duration || 100;
           const leftPercent = (startTime / totalDuration) * 100;
           const widthPercent = Math.max((duration / totalDuration) * 100, 0.5);
+          
+          // Check if this is an orchestration call with routing/response breakdown
+          const isOrchestration = item.orchestrationCall;
+          const routingOverhead = item.data?.routingOverhead || 0;
+          const responseTime = item.data?.responseTime || duration;
+          const routingWidth = isOrchestration ? (routingOverhead / totalDuration) * 100 : 0;
+          const responseWidth = isOrchestration ? (responseTime / totalDuration) * 100 : widthPercent;
           
           return (
             <motion.div
@@ -850,24 +747,65 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
                     {item.data.turns}t
                   </span>
                 )}
+                {isOrchestration && (
+                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">
+                    Routing: {formatDuration(routingOverhead)} | Response: {formatDuration(responseTime)}
+                  </span>
+                )}
               </div>
 
               {/* Timeline Bar */}
               <div className="flex-1 h-6 bg-gray-100 rounded relative">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${widthPercent}%` }}
-                  transition={{ delay: index * 0.02, duration: 0.4 }}
-                  className={`absolute h-full rounded ${getBarColor(item)}`}
-                  style={{ left: `${leftPercent}%` }}
-                />
-                {/* Duration label */}
-                <span 
-                  className="absolute text-[10px] text-white font-medium px-1 top-1/2 -translate-y-1/2"
-                  style={{ left: `calc(${leftPercent}% + 4px)` }}
-                >
-                  {formatDuration(duration)}
-                </span>
+                {isOrchestration ? (
+                  <>
+                    {/* Routing Overhead Bar */}
+                    {routingOverhead > 0 && (
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${routingWidth}%` }}
+                        transition={{ delay: index * 0.02, duration: 0.4 }}
+                        className="absolute h-full bg-amber-200 border-r-2 border-amber-300 rounded-l"
+                        style={{ left: `${leftPercent}%` }}
+                        title={`Routing: ${formatDuration(routingOverhead)}`}
+                      />
+                    )}
+                    {/* Response Time Bar */}
+                    {responseTime > 0 && (
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${responseWidth}%` }}
+                        transition={{ delay: index * 0.02 + 0.2, duration: 0.4 }}
+                        className={`absolute h-full ${item.type === 'agent' ? 'bg-blue-500' : 'bg-purple-500'} rounded-r`}
+                        style={{ left: `calc(${leftPercent}% + ${routingWidth}%)` }}
+                        title={`Response: ${formatDuration(responseTime)}`}
+                      />
+                    )}
+                    {/* Total Duration label */}
+                    <span 
+                      className="absolute text-[10px] text-white font-medium px-1 top-1/2 -translate-y-1/2 whitespace-nowrap"
+                      style={{ left: `calc(${leftPercent}% + ${routingWidth}% + ${responseWidth}% / 2 - 50%)` }}
+                    >
+                      {formatDuration(duration)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${widthPercent}%` }}
+                      transition={{ delay: index * 0.02, duration: 0.4 }}
+                      className={`absolute h-full rounded ${getBarColor(item)}`}
+                      style={{ left: `${leftPercent}%` }}
+                    />
+                    {/* Duration label */}
+                    <span 
+                      className="absolute text-[10px] text-white font-medium px-1 top-1/2 -translate-y-1/2"
+                      style={{ left: `calc(${leftPercent}% + 4px)` }}
+                    >
+                      {formatDuration(duration)}
+                    </span>
+                  </>
+                )}
               </div>
             </motion.div>
           );
@@ -875,26 +813,43 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
       </div>
 
       {/* Legend */}
-      <div className="mt-6 pt-4 border-t border-gray-200 flex flex-wrap gap-4 text-xs">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-blue-500" />
-          <span className="text-gray-600">Agent</span>
+      <div className="mt-6 pt-4 border-t border-gray-200">
+        <div className="flex flex-wrap gap-4 text-xs mb-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-blue-500" />
+            <span className="text-gray-600">Agent</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-purple-500" />
+            <span className="text-gray-600">MCP</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-orange-400" />
+            <span className="text-gray-600">Input</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-amber-400" />
+            <span className="text-gray-600">Reasoning</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-red-500" />
+            <span className="text-gray-600">Error</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-purple-500" />
-          <span className="text-gray-600">MCP</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-orange-400" />
-          <span className="text-gray-600">Input</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-400" />
-          <span className="text-gray-600">Reasoning</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-red-500" />
-          <span className="text-gray-600">Error</span>
+        {/* Orchestration Legend */}
+        <div className="flex flex-wrap gap-4 text-xs text-gray-500 border-t border-gray-100 pt-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-amber-200 border border-amber-300" />
+            <span>Routing Overhead</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-blue-500" />
+            <span>Sub-Agent Response</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-purple-500" />
+            <span>MCP Response</span>
+          </div>
         </div>
       </div>
     </div>
