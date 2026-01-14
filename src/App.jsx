@@ -336,13 +336,6 @@ function SessionsList({ traces, onTraceClick, selectedTrace }) {
           aValue = qualityOrder[aQuality] || 0;
           bValue = qualityOrder[bQuality] || 0;
           break;
-        case 'orgType':
-          aValue = a.trustBoundary?.type || 'SOMA';
-          bValue = b.trustBoundary?.type || 'SOMA';
-          const orgOrder = { 'SOMA': 1, 'MOMA': 2, '3P': 3 };
-          aValue = orgOrder[aValue] || 0;
-          bValue = orgOrder[bValue] || 0;
-          break;
         default:
           return 0;
       }
@@ -483,7 +476,6 @@ function SessionsList({ traces, onTraceClick, selectedTrace }) {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Topics</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Actions</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Intent Tag</th>
-              <SortableHeader label="Org Type" column="orgType" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <SortableHeader label="Quality Score" column="quality" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">Quality Score Reason</th>
             </tr>
@@ -617,17 +609,6 @@ function SessionRow({ trace, index, isSelected, onClick }) {
       {/* Intent Tag */}
       <td className="px-4 py-3">
         <span className="text-sm text-gray-700">{intentTag}</span>
-      </td>
-      
-      {/* Org Type */}
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded ${
-          trace.trustBoundary?.type === 'SOMA' ? 'bg-blue-100 text-blue-800' :
-          trace.trustBoundary?.type === 'MOMA' ? 'bg-purple-100 text-purple-800' :
-          'bg-orange-100 text-orange-800'
-        }`}>
-          {trace.trustBoundary?.type || 'SOMA'}
-        </span>
       </td>
       
       {/* Quality Score */}
