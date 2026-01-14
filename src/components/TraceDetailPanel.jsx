@@ -28,6 +28,7 @@ import {
   Loader2,
   ArrowDownCircle,
   ArrowRightLeft,
+  CornerDownRight,
 } from 'lucide-react';
 import { 
   formatDuration, 
@@ -735,26 +736,34 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-gray-400">Agent</span>
                     {(() => {
+                      const orchestration = orchestrationByMessage[0];
+                      const hasErrors = orchestration ? [...orchestration.subAgents, ...orchestration.mcps].some(item => hasError(item.span)) : false;
                       const latencyBreakdown = getAgentMessageLatencyBreakdown(0);
-                      if (latencyBreakdown) {
-                        return (
-                          <div className="flex items-center gap-1 text-[10px]">
-                            <span className="text-amber-600 font-medium">
-                              R: {formatDuration(latencyBreakdown.routingOverhead)}
-                            </span>
-                            <span className="text-gray-300">|</span>
-                            <span className="text-blue-600 font-medium">
-                              S: {formatDuration(latencyBreakdown.responseTime)}
-                            </span>
-                            <span className="text-gray-400 font-mono">
-                              ({formatDuration(latencyBreakdown.totalTime)})
-                            </span>
+                      return (
+                        <>
+                          <div className={`flex items-center gap-1 ${hasErrors ? 'text-red-600' : 'text-gray-400'}`}>
+                            <CornerDownRight className="w-3 h-3" />
+                            <span className="text-[10px]">Response</span>
                           </div>
-                        );
-                      }
-                      return <span className="text-[10px] text-gray-400">(Complete: 5 sec)</span>;
+                          {latencyBreakdown ? (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className={hasErrors ? 'text-red-600 font-medium' : 'text-blue-600 font-medium'}>
+                                S: {formatDuration(latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          ) : (
+                            <span className={`text-[10px] ${hasErrors ? 'text-red-400' : 'text-gray-400'}`}>(Complete: 5 sec)</span>
+                          )}
+                        </>
+                      );
                     })()}
                   </div>
                   {/* Orchestration indicators for message 0 */}
@@ -785,26 +794,34 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-gray-400">Agent</span>
                     {(() => {
+                      const orchestration = orchestrationByMessage[1];
+                      const hasErrors = orchestration ? [...orchestration.subAgents, ...orchestration.mcps].some(item => hasError(item.span)) : false;
                       const latencyBreakdown = getAgentMessageLatencyBreakdown(1);
-                      if (latencyBreakdown) {
-                        return (
-                          <div className="flex items-center gap-1 text-[10px]">
-                            <span className="text-amber-600 font-medium">
-                              R: {formatDuration(latencyBreakdown.routingOverhead)}
-                            </span>
-                            <span className="text-gray-300">|</span>
-                            <span className="text-blue-600 font-medium">
-                              S: {formatDuration(latencyBreakdown.responseTime)}
-                            </span>
-                            <span className="text-gray-400 font-mono">
-                              ({formatDuration(latencyBreakdown.totalTime)})
-                            </span>
+                      return (
+                        <>
+                          <div className={`flex items-center gap-1 ${hasErrors ? 'text-red-600' : 'text-gray-400'}`}>
+                            <CornerDownRight className="w-3 h-3" />
+                            <span className="text-[10px]">Response</span>
                           </div>
-                        );
-                      }
-                      return <span className="text-[10px] text-gray-400">(Complete: 5 sec)</span>;
+                          {latencyBreakdown ? (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className={hasErrors ? 'text-red-600 font-medium' : 'text-blue-600 font-medium'}>
+                                S: {formatDuration(latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          ) : (
+                            <span className={`text-[10px] ${hasErrors ? 'text-red-400' : 'text-gray-400'}`}>(Complete: 5 sec)</span>
+                          )}
+                        </>
+                      );
                     })()}
                   </div>
                   {/* Orchestration indicators for message 1 */}
@@ -835,26 +852,34 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-gray-400">Agent</span>
                     {(() => {
+                      const orchestration = orchestrationByMessage[2];
+                      const hasErrors = orchestration ? [...orchestration.subAgents, ...orchestration.mcps].some(item => hasError(item.span)) : false;
                       const latencyBreakdown = getAgentMessageLatencyBreakdown(2);
-                      if (latencyBreakdown) {
-                        return (
-                          <div className="flex items-center gap-1 text-[10px]">
-                            <span className="text-amber-600 font-medium">
-                              R: {formatDuration(latencyBreakdown.routingOverhead)}
-                            </span>
-                            <span className="text-gray-300">|</span>
-                            <span className="text-blue-600 font-medium">
-                              S: {formatDuration(latencyBreakdown.responseTime)}
-                            </span>
-                            <span className="text-gray-400 font-mono">
-                              ({formatDuration(latencyBreakdown.totalTime)})
-                            </span>
+                      return (
+                        <>
+                          <div className={`flex items-center gap-1 ${hasErrors ? 'text-red-600' : 'text-gray-400'}`}>
+                            <CornerDownRight className="w-3 h-3" />
+                            <span className="text-[10px]">Response</span>
                           </div>
-                        );
-                      }
-                      return <span className="text-[10px] text-gray-400">(Complete: 8 sec)</span>;
+                          {latencyBreakdown ? (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className={hasErrors ? 'text-red-600 font-medium' : 'text-blue-600 font-medium'}>
+                                S: {formatDuration(latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          ) : (
+                            <span className={`text-[10px] ${hasErrors ? 'text-red-400' : 'text-gray-400'}`}>(Complete: 8 sec)</span>
+                          )}
+                        </>
+                      );
                     })()}
                   </div>
                   {/* Orchestration indicators for message 2 */}
