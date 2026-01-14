@@ -197,13 +197,17 @@ function TraceDetailPanel({ trace, onClose }) {
 
 // Session Log Panel Component
 function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
+  const messages = sessionLog?.messages || [];
+  const totalDuration = trace.duration || 0;
+  const durationText = formatDuration(totalDuration);
+  
   return (
     <div className="flex flex-col h-full" key={trace.id}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-900 mb-1">Chat Session Log</h2>
         <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span>(4 min, 5 sec)</span>
+          <span>({durationText})</span>
           <button className="ml-auto text-blue-600 hover:text-blue-700">
             <Download className="w-4 h-4" />
           </button>
@@ -213,101 +217,99 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {/* Chat initiated */}
-        <div className="flex items-start gap-3 mb-6">
-          <div className="w-0.5 h-full bg-gray-200 absolute left-[38px] top-0" />
-          <div className="relative z-10 w-5 h-5 rounded-full bg-purple-100 border-2 border-white flex items-center justify-center flex-shrink-0 mt-0.5">
-            <MessageCircle className="w-3 h-3 text-purple-600" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs text-gray-500">Chat initiated by <span className="font-medium text-gray-700">User</span> • 11:00:00 AM</p>
-          </div>
-        </div>
-
-        {/* Timeline Marker - Operational Optimization */}
-        <div className="mb-4 pl-8">
-          <div className="border-l-2 border-gray-300 pl-4 pb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-px w-3 bg-gray-300" />
-              <span className="text-xs text-gray-600 font-medium">Operational Optimization</span>
-              <span className="text-xs text-gray-500">(4 min, 5 sec)</span>
-              <span className="ml-auto px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 rounded">
-                Quality: High
-              </span>
+        {messages.length > 0 && (
+          <div className="flex items-start gap-3 mb-6">
+            <div className="w-0.5 h-full bg-gray-200 absolute left-[38px] top-0" />
+            <div className="relative z-10 w-5 h-5 rounded-full bg-purple-100 border-2 border-white flex items-center justify-center flex-shrink-0 mt-0.5">
+              <MessageCircle className="w-3 h-3 text-purple-600" />
             </div>
-
-            {/* User Message */}
-            <div className="mb-3">
-              <div className="inline-block px-4 py-2 bg-gray-800 text-white rounded-2xl rounded-bl-sm max-w-[90%] text-sm">
-                I need help with performance insights.
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">User • 11:00:00 AM</p>
-            </div>
-
-            {/* Agent Response */}
-            <div 
-              className="mb-3 flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => onMessageClick && onMessageClick('trace')}
-            >
-              <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-3.5 h-3.5 text-blue-600" />
-              </div>
-              <div>
-                <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
-                  Hello! Thank you for reaching out to Pronto Food Delivery support. I'd be happy to assist you with performance insights. Can I start by getting your user ID, please?
-                </div>
-                <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 5 sec)</p>
-              </div>
-            </div>
-
-            {/* User ID */}
-            <div className="mb-3">
-              <div className="inline-block px-4 py-2 bg-gray-800 text-white rounded-2xl rounded-bl-sm max-w-[90%] text-sm">
-                USER12345
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">User • 11:01:00 AM</p>
-            </div>
-
-            {/* Agent Response with clarification */}
-            <div 
-              className="mb-3 flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => onMessageClick && onMessageClick('trace')}
-            >
-              <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-3.5 h-3.5 text-blue-600" />
-              </div>
-              <div>
-                <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
-                  Thank you for sharing your user ID, USER12345. Could you also let me know which Pronto product this inquiry is related to, or if it's a general issue?
-                </div>
-                <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 5 sec)</p>
-              </div>
-            </div>
-
-            {/* Product Selection */}
-            <div className="mb-3">
-              <div className="inline-block px-4 py-2 bg-gray-800 text-white rounded-2xl rounded-bl-sm max-w-[90%] text-sm">
-                Restaurant Performance Analytics.
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">User • 11:02:00 AM</p>
-            </div>
-
-            {/* Final Agent Response */}
-            <div 
-              className="flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => onMessageClick && onMessageClick('trace')}
-            >
-              <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-3.5 h-3.5 text-blue-600" />
-              </div>
-              <div>
-                <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
-                  Got it! I'll assist you with insights related to the Restaurant Performance Analytics product. Feel free to ask your questions, and I'll provide as much detail as possible!
-                </div>
-                <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 8 sec)</p>
-              </div>
+            <div className="flex-1">
+              <p className="text-xs text-gray-500">Chat initiated by <span className="font-medium text-gray-700">User</span> • {messages[0]?.timestamp || formatTimestamp(trace.timestamp)}</p>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Messages */}
+        {messages.length > 0 && (
+          <div className="mb-4 pl-8">
+            <div className="border-l-2 border-gray-300 pl-4 pb-4">
+              {messages.map((message, index) => {
+                if (message.role === 'user') {
+                  return (
+                    <div key={index} className="mb-3">
+                      <div className="inline-block px-4 py-2 bg-gray-800 text-white rounded-2xl rounded-bl-sm max-w-[90%] text-sm">
+                        {message.content}
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">User • {message.timestamp}</p>
+                    </div>
+                  );
+                } else if (message.role === 'orchestration') {
+                  // Orchestration event (sub-agent or MCP)
+                  const isSubAgent = message.type === 'sub-agent';
+                  return (
+                    <div key={index} className="mb-3 flex items-start gap-2">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isSubAgent ? 'bg-blue-50 border border-blue-200' : 'bg-purple-50 border border-purple-200'
+                      }`}>
+                        {isSubAgent ? (
+                          <Bot className="w-3.5 h-3.5 text-blue-600" />
+                        ) : (
+                          <Wrench className="w-3.5 h-3.5 text-purple-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
+                          isSubAgent 
+                            ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                            : 'bg-purple-50 border-purple-200 text-purple-700'
+                        }`}>
+                          <span className="font-medium">
+                            {isSubAgent ? '→' : '🔧'}
+                          </span>
+                          <span>{message.content}</span>
+                          {message.is3P && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-orange-100 text-orange-700 rounded">
+                              3P
+                            </span>
+                          )}
+                          {message.duration && (
+                            <span className="text-gray-500">
+                              ({formatDuration(message.duration)})
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {isSubAgent ? 'Sub-Agent' : 'MCP'} • {message.timestamp}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                } else if (message.role === 'agent') {
+                  return (
+                    <div 
+                      key={index}
+                      className="mb-3 flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => onMessageClick && onMessageClick('trace')}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-3.5 h-3.5 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
+                          {message.content}
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          Agent {message.duration ? `(Complete: ${formatDuration(message.duration)})` : ''} • {message.timestamp}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Chat ended */}
         <div className="flex items-start gap-3 pl-8">
@@ -315,7 +317,9 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
             <div className="w-2 h-2 bg-gray-400 rounded-full" />
           </div>
           <div className="flex-1">
-            <p className="text-xs text-gray-500">Chat ended by <span className="font-medium text-gray-700">Agentforce</span> • Jan 8, 03:44 AM</p>
+            <p className="text-xs text-gray-500">
+              Chat ended by <span className="font-medium text-gray-700">Agentforce</span> • {formatTimestamp(trace.timestamp)}
+            </p>
           </div>
         </div>
       </div>
@@ -908,103 +912,53 @@ function getSubAgentLatencyBreakdown(item, traceItems) {
   
   const actionSelection = findActionSelection(traceItems, itemStartTime);
   
-  // Find the next operation after sub-agent completion to calculate synthesis time
-  const findNextOperation = (items, subAgentEndTime) => {
-    let nextOp = null;
-    const traverse = (itemList) => {
-      itemList.forEach(it => {
-        const itStartTime = it.data?.start_time || 0;
-        // Find the first operation that starts after sub-agent ends
-        if (itStartTime > subAgentEndTime) {
-          if (!nextOp || itStartTime < nextOp.startTime) {
-            // Skip if it's another sub-agent or MCP (we want synthesis/processing operations)
-            const isSubAgentOrMCP = (it.type === 'agent' && (it.label?.includes('A2A') || it.data?.['handoff.target'])) ||
-                                   it.type === 'mcp' ||
-                                   it.data?.['mcp.tool.name'];
-            if (!isSubAgentOrMCP) {
-              nextOp = {
-                startTime: itStartTime,
-                type: it.type,
-              };
-            }
-          }
-        }
-        if (it.children) {
-          traverse(it.children);
-        }
-      });
-    };
-    traverse(items);
-    return nextOp;
-  };
-  
   if (actionSelection) {
     // Routing overhead: time gap between Action Selection completion and sub-agent call start
     const routingOverhead = Math.max(0, itemStartTime - actionSelection.endTime);
+    // Response time: actual sub-agent execution duration (MUST equal item.duration)
+    // This is the time the sub-agent actually spends processing
+    const responseTime = itemDuration; // Always equals item.duration
     
-    // Sub-agent response time: actual sub-agent execution duration
-    const subAgentResponseTime = itemDuration; // Always equals item.duration
-    const subAgentEndTime = itemStartTime + subAgentResponseTime;
-    
-    // Primary agent synthesis time: time between sub-agent completion and next operation
-    const nextOperation = findNextOperation(traceItems, subAgentEndTime);
-    let synthesisTime = 0;
-    if (nextOperation) {
-      synthesisTime = Math.max(0, nextOperation.startTime - subAgentEndTime);
-    } else {
-      // If no next operation found, check if there's a parent span that extends beyond sub-agent
-      // This would indicate synthesis time is part of the parent's remaining duration
-      const parentSpan = traceItems.find(t => {
-        const parentStart = t.data?.start_time || 0;
-        const parentEnd = parentStart + (t.duration || 0);
-        return itemStartTime >= parentStart && itemStartTime < parentEnd && 
-               subAgentEndTime < parentEnd;
-      });
-      if (parentSpan) {
-        const parentEndTime = (parentSpan.data?.start_time || 0) + (parentSpan.duration || 0);
-        synthesisTime = Math.max(0, parentEndTime - subAgentEndTime);
-      }
-    }
-    
-    // Total time: routing overhead + sub-agent response + synthesis
-    const totalTime = routingOverhead + subAgentResponseTime + synthesisTime;
+    // Math verification:
+    // - routingOverhead: time BEFORE sub-agent starts (gap)
+    // - responseTime: time DURING sub-agent execution (= item.duration)
+    // - totalTime: routingOverhead + responseTime (time from Action Selection end to sub-agent end)
+    // Note: item.duration represents only the sub-agent execution, not including routing overhead
     
     return {
       routingOverhead,
-      subAgentResponseTime, // Sub-agent execution time
-      synthesisTime, // Primary agent synthesis/processing time
-      totalTime, // Total time span
+      responseTime, // Always equals item.duration
+      totalTime: routingOverhead + responseTime, // Total time span
     };
   }
   
   // If no action selection found, try to use handoff.latency attribute if available
   if (item.data?.['handoff.latency']) {
     const handoffLatency = item.data['handoff.latency'];
-    const subAgentEndTime = itemStartTime + itemDuration;
-    
-    // Try to find synthesis time
-    const nextOperation = findNextOperation(traceItems, subAgentEndTime);
-    let synthesisTime = 0;
-    if (nextOperation) {
-      synthesisTime = Math.max(0, nextOperation.startTime - subAgentEndTime);
-    }
-    
-    // Calculate routing overhead
+    // handoff.latency may represent total handoff time or just routing overhead
+    // item.duration is the actual sub-agent execution time
+    // If handoff.latency > item.duration, the difference is routing overhead
+    // Otherwise, estimate routing overhead as a small portion
     let routingOverhead = 0;
     if (handoffLatency > itemDuration) {
-      routingOverhead = Math.min(handoffLatency - itemDuration, itemDuration * 0.3);
+      // handoff.latency includes routing overhead + some processing
+      routingOverhead = Math.min(handoffLatency - itemDuration, itemDuration * 0.3); // Cap at 30% of duration
     } else {
-      routingOverhead = Math.min(itemDuration * 0.1, 200);
+      // If handoff.latency <= item.duration, estimate routing overhead
+      routingOverhead = Math.min(itemDuration * 0.1, 200); // Max 10% or 200ms
     }
+    // Response time ALWAYS equals item.duration (the actual sub-agent execution time)
+    const responseTime = itemDuration;
     
-    const subAgentResponseTime = itemDuration;
-    const totalTime = routingOverhead + subAgentResponseTime + synthesisTime;
+    // Math verification:
+    // - responseTime = item.duration (always)
+    // - routingOverhead = estimated or calculated gap
+    // - totalTime = routingOverhead + responseTime
     
     return {
       routingOverhead: Math.max(0, routingOverhead),
-      subAgentResponseTime,
-      synthesisTime,
-      totalTime,
+      responseTime, // Always equals item.duration
+      totalTime: routingOverhead + responseTime,
     };
   }
   
@@ -1124,10 +1078,12 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
         {(() => {
           const latencyBreakdown = getSubAgentLatencyBreakdown(item, traceItems);
           if (latencyBreakdown) {
+            // Math verification: responseTime MUST equal item.duration
+            // routingOverhead is the gap BEFORE sub-agent starts
+            // responseTime is the sub-agent execution time (= item.duration)
             const routingOverhead = latencyBreakdown.routingOverhead;
-            const subAgentResponseTime = latencyBreakdown.subAgentResponseTime || item.duration;
-            const synthesisTime = latencyBreakdown.synthesisTime || 0;
-            const totalTime = latencyBreakdown.totalTime || (routingOverhead + subAgentResponseTime + synthesisTime);
+            const responseTime = item.duration; // Always use item.duration for consistency
+            const totalTime = routingOverhead + responseTime; // Total time span from Action Selection end to sub-agent completion
             
             return (
               <div className="flex items-center gap-2 ml-auto pr-3 flex-shrink-0">
@@ -1136,19 +1092,11 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
                     R: {formatDuration(routingOverhead)}
                   </span>
                   <span className="text-gray-300">|</span>
-                  <span className="text-blue-600 font-medium" title={`Sub-Agent Response: ${formatDuration(subAgentResponseTime)}\nActual execution time of the sub-agent`}>
-                    S: {formatDuration(subAgentResponseTime)}
+                  <span className="text-blue-600 font-medium" title={`Sub-Agent Response: ${formatDuration(responseTime)}\nActual execution time of the sub-agent (equals duration)`}>
+                    S: {formatDuration(responseTime)}
                   </span>
-                  {synthesisTime > 0 && (
-                    <>
-                      <span className="text-gray-300">|</span>
-                      <span className="text-purple-600 font-medium" title={`Synthesis Time: ${formatDuration(synthesisTime)}\nTime for primary agent to process/synthesize sub-agent response`}>
-                        Syn: {formatDuration(synthesisTime)}
-                      </span>
-                    </>
-                  )}
                 </div>
-                <span className="text-xs text-gray-400 font-mono" title={`Total Time Span: ${formatDuration(totalTime)}\n(R: ${formatDuration(routingOverhead)} + S: ${formatDuration(subAgentResponseTime)}${synthesisTime > 0 ? ` + Syn: ${formatDuration(synthesisTime)}` : ''})`}>
+                <span className="text-xs text-gray-400 font-mono" title={`Total Time Span: ${formatDuration(totalTime)}\n(R: ${formatDuration(routingOverhead)} + S: ${formatDuration(responseTime)})`}>
                   ({formatDuration(totalTime)})
                 </span>
               </div>
@@ -2923,19 +2871,97 @@ function generateMockSessionLog(trace) {
     ? "I'm unable to access the troubleshooting information directly right now. Could you provide more details about the delivery issue you're experiencing? I'll do my best to assist you!"
     : "I've found the relevant information for your request. Let me help you with that.";
 
+  // Extract orchestration events (sub-agents and MCPs) from trace
+  const orchestrationEvents = [];
+  if (trace.spans) {
+    const processSpans = (spans, parentStartTime = 0) => {
+      spans.forEach(span => {
+        const spanStartTime = span.start_time || 0;
+        const spanDuration = span.duration || 0;
+        const relativeTime = spanStartTime - parentStartTime;
+        
+        // Check for sub-agent (A2A handoff)
+        if (span.name === 'agent.handoff' || 
+            span.name?.includes('A2A') ||
+            span.attributes?.['rpc.system'] === 'agentforce_a2a' ||
+            span.attributes?.['handoff.target']) {
+          const agentName = span.attributes?.['handoff.target'] || 
+                           span.attributes?.['agent.id'] || 
+                           span.name?.replace('A2A:', '').trim() || 
+                           'Sub-Agent';
+          orchestrationEvents.push({
+            type: 'sub-agent',
+            agentName,
+            timestamp: relativeTime,
+            duration: spanDuration,
+            is3P: span.attributes?.['trust.boundary'] === '3P' || 
+                  span.attributes?.['agent.origin'] === 'external',
+          });
+        }
+        
+        // Check for MCP tool execution
+        if (span.name === 'MCP.tool.execution' ||
+            span.attributes?.['mcp.tool.name'] ||
+            span.attributes?.['mcp.operation']) {
+          const toolName = span.attributes?.['mcp.tool.name'] || 
+                          span.attributes?.['tool.name'] || 
+                          span.name?.replace('MCP:', '').trim() || 
+                          'External Tool';
+          orchestrationEvents.push({
+            type: 'mcp',
+            toolName,
+            timestamp: relativeTime,
+            duration: spanDuration,
+          });
+        }
+        
+        // Process nested spans
+        if (span.children) {
+          processSpans(span.children, spanStartTime);
+        }
+      });
+    };
+    
+    processSpans(trace.spans);
+  }
+  
+  // Sort events by timestamp
+  orchestrationEvents.sort((a, b) => a.timestamp - b.timestamp);
+  
+  // Build messages array with orchestration events
+  const messages = [
+    {
+      role: 'user',
+      content: userQuery,
+      timestamp: formatTimestamp(trace.timestamp),
+    },
+  ];
+  
+  // Add orchestration events before agent response
+  orchestrationEvents.forEach((event, index) => {
+    messages.push({
+      role: 'orchestration',
+      type: event.type,
+      content: event.type === 'sub-agent' 
+        ? `Orchestrated to ${event.agentName}${event.is3P ? ' (3P)' : ''}`
+        : `Used external tool: ${event.toolName}`,
+      agentName: event.type === 'sub-agent' ? event.agentName : null,
+      toolName: event.type === 'mcp' ? event.toolName : null,
+      timestamp: formatTimestamp(new Date(trace.timestamp + event.timestamp)),
+      duration: event.duration,
+      is3P: event.is3P || false,
+    });
+  });
+  
+  // Add agent response
+  messages.push({
+    role: 'agent',
+    content: agentResponse,
+    timestamp: formatTimestamp(trace.timestamp),
+  });
+
   return {
-    messages: [
-      {
-        role: 'user',
-        content: userQuery,
-        timestamp: formatTimestamp(trace.timestamp),
-      },
-      {
-        role: 'agent',
-        content: agentResponse,
-        timestamp: formatTimestamp(trace.timestamp),
-      },
-    ],
+    messages,
   };
 }
 
