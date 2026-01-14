@@ -908,53 +908,103 @@ function getSubAgentLatencyBreakdown(item, traceItems) {
   
   const actionSelection = findActionSelection(traceItems, itemStartTime);
   
+  // Find the next operation after sub-agent completion to calculate synthesis time
+  const findNextOperation = (items, subAgentEndTime) => {
+    let nextOp = null;
+    const traverse = (itemList) => {
+      itemList.forEach(it => {
+        const itStartTime = it.data?.start_time || 0;
+        // Find the first operation that starts after sub-agent ends
+        if (itStartTime > subAgentEndTime) {
+          if (!nextOp || itStartTime < nextOp.startTime) {
+            // Skip if it's another sub-agent or MCP (we want synthesis/processing operations)
+            const isSubAgentOrMCP = (it.type === 'agent' && (it.label?.includes('A2A') || it.data?.['handoff.target'])) ||
+                                   it.type === 'mcp' ||
+                                   it.data?.['mcp.tool.name'];
+            if (!isSubAgentOrMCP) {
+              nextOp = {
+                startTime: itStartTime,
+                type: it.type,
+              };
+            }
+          }
+        }
+        if (it.children) {
+          traverse(it.children);
+        }
+      });
+    };
+    traverse(items);
+    return nextOp;
+  };
+  
   if (actionSelection) {
     // Routing overhead: time gap between Action Selection completion and sub-agent call start
     const routingOverhead = Math.max(0, itemStartTime - actionSelection.endTime);
-    // Response time: actual sub-agent execution duration (MUST equal item.duration)
-    // This is the time the sub-agent actually spends processing
-    const responseTime = itemDuration; // Always equals item.duration
     
-    // Math verification:
-    // - routingOverhead: time BEFORE sub-agent starts (gap)
-    // - responseTime: time DURING sub-agent execution (= item.duration)
-    // - totalTime: routingOverhead + responseTime (time from Action Selection end to sub-agent end)
-    // Note: item.duration represents only the sub-agent execution, not including routing overhead
+    // Sub-agent response time: actual sub-agent execution duration
+    const subAgentResponseTime = itemDuration; // Always equals item.duration
+    const subAgentEndTime = itemStartTime + subAgentResponseTime;
+    
+    // Primary agent synthesis time: time between sub-agent completion and next operation
+    const nextOperation = findNextOperation(traceItems, subAgentEndTime);
+    let synthesisTime = 0;
+    if (nextOperation) {
+      synthesisTime = Math.max(0, nextOperation.startTime - subAgentEndTime);
+    } else {
+      // If no next operation found, check if there's a parent span that extends beyond sub-agent
+      // This would indicate synthesis time is part of the parent's remaining duration
+      const parentSpan = traceItems.find(t => {
+        const parentStart = t.data?.start_time || 0;
+        const parentEnd = parentStart + (t.duration || 0);
+        return itemStartTime >= parentStart && itemStartTime < parentEnd && 
+               subAgentEndTime < parentEnd;
+      });
+      if (parentSpan) {
+        const parentEndTime = (parentSpan.data?.start_time || 0) + (parentSpan.duration || 0);
+        synthesisTime = Math.max(0, parentEndTime - subAgentEndTime);
+      }
+    }
+    
+    // Total time: routing overhead + sub-agent response + synthesis
+    const totalTime = routingOverhead + subAgentResponseTime + synthesisTime;
     
     return {
       routingOverhead,
-      responseTime, // Always equals item.duration
-      totalTime: routingOverhead + responseTime, // Total time span
+      subAgentResponseTime, // Sub-agent execution time
+      synthesisTime, // Primary agent synthesis/processing time
+      totalTime, // Total time span
     };
   }
   
   // If no action selection found, try to use handoff.latency attribute if available
   if (item.data?.['handoff.latency']) {
     const handoffLatency = item.data['handoff.latency'];
-    // handoff.latency may represent total handoff time or just routing overhead
-    // item.duration is the actual sub-agent execution time
-    // If handoff.latency > item.duration, the difference is routing overhead
-    // Otherwise, estimate routing overhead as a small portion
+    const subAgentEndTime = itemStartTime + itemDuration;
+    
+    // Try to find synthesis time
+    const nextOperation = findNextOperation(traceItems, subAgentEndTime);
+    let synthesisTime = 0;
+    if (nextOperation) {
+      synthesisTime = Math.max(0, nextOperation.startTime - subAgentEndTime);
+    }
+    
+    // Calculate routing overhead
     let routingOverhead = 0;
     if (handoffLatency > itemDuration) {
-      // handoff.latency includes routing overhead + some processing
-      routingOverhead = Math.min(handoffLatency - itemDuration, itemDuration * 0.3); // Cap at 30% of duration
+      routingOverhead = Math.min(handoffLatency - itemDuration, itemDuration * 0.3);
     } else {
-      // If handoff.latency <= item.duration, estimate routing overhead
-      routingOverhead = Math.min(itemDuration * 0.1, 200); // Max 10% or 200ms
+      routingOverhead = Math.min(itemDuration * 0.1, 200);
     }
-    // Response time ALWAYS equals item.duration (the actual sub-agent execution time)
-    const responseTime = itemDuration;
     
-    // Math verification:
-    // - responseTime = item.duration (always)
-    // - routingOverhead = estimated or calculated gap
-    // - totalTime = routingOverhead + responseTime
+    const subAgentResponseTime = itemDuration;
+    const totalTime = routingOverhead + subAgentResponseTime + synthesisTime;
     
     return {
       routingOverhead: Math.max(0, routingOverhead),
-      responseTime, // Always equals item.duration
-      totalTime: routingOverhead + responseTime,
+      subAgentResponseTime,
+      synthesisTime,
+      totalTime,
     };
   }
   
@@ -1074,12 +1124,10 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
         {(() => {
           const latencyBreakdown = getSubAgentLatencyBreakdown(item, traceItems);
           if (latencyBreakdown) {
-            // Math verification: responseTime MUST equal item.duration
-            // routingOverhead is the gap BEFORE sub-agent starts
-            // responseTime is the sub-agent execution time (= item.duration)
             const routingOverhead = latencyBreakdown.routingOverhead;
-            const responseTime = item.duration; // Always use item.duration for consistency
-            const totalTime = routingOverhead + responseTime; // Total time span from Action Selection end to sub-agent completion
+            const subAgentResponseTime = latencyBreakdown.subAgentResponseTime || item.duration;
+            const synthesisTime = latencyBreakdown.synthesisTime || 0;
+            const totalTime = latencyBreakdown.totalTime || (routingOverhead + subAgentResponseTime + synthesisTime);
             
             return (
               <div className="flex items-center gap-2 ml-auto pr-3 flex-shrink-0">
@@ -1088,11 +1136,19 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
                     R: {formatDuration(routingOverhead)}
                   </span>
                   <span className="text-gray-300">|</span>
-                  <span className="text-blue-600 font-medium" title={`Sub-Agent Response: ${formatDuration(responseTime)}\nActual execution time of the sub-agent (equals duration)`}>
-                    S: {formatDuration(responseTime)}
+                  <span className="text-blue-600 font-medium" title={`Sub-Agent Response: ${formatDuration(subAgentResponseTime)}\nActual execution time of the sub-agent`}>
+                    S: {formatDuration(subAgentResponseTime)}
                   </span>
+                  {synthesisTime > 0 && (
+                    <>
+                      <span className="text-gray-300">|</span>
+                      <span className="text-purple-600 font-medium" title={`Synthesis Time: ${formatDuration(synthesisTime)}\nTime for primary agent to process/synthesize sub-agent response`}>
+                        Syn: {formatDuration(synthesisTime)}
+                      </span>
+                    </>
+                  )}
                 </div>
-                <span className="text-xs text-gray-400 font-mono" title={`Total Time Span: ${formatDuration(totalTime)}\n(R: ${formatDuration(routingOverhead)} + S: ${formatDuration(responseTime)})`}>
+                <span className="text-xs text-gray-400 font-mono" title={`Total Time Span: ${formatDuration(totalTime)}\n(R: ${formatDuration(routingOverhead)} + S: ${formatDuration(subAgentResponseTime)}${synthesisTime > 0 ? ` + Syn: ${formatDuration(synthesisTime)}` : ''})`}>
                   ({formatDuration(totalTime)})
                 </span>
               </div>
