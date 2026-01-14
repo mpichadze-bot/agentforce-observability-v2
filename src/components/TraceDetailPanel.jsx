@@ -635,6 +635,21 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
 
   return (
     <div className="p-4">
+      {/* Info Banner for Orchestration Timing */}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-start gap-2">
+          <HelpCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 text-xs text-gray-700">
+            <p className="font-semibold text-gray-900 mb-1">Latency Breakdown for Sub-Agents & MCPs:</p>
+            <ul className="space-y-1 ml-4 list-disc">
+              <li><span className="font-medium text-amber-700">Routing Overhead</span>: Time between Action Selection completion and when the sub-agent/MCP call actually starts (includes decision time, network setup, etc.)</li>
+              <li><span className="font-medium text-blue-700">Response Time</span>: Actual execution time of the sub-agent or MCP tool</li>
+              <li><span className="font-medium">Total Time</span>: Sum of Routing Overhead + Response Time</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* Timeline Header */}
       <div className="flex items-center mb-4 text-xs text-gray-500 border-b border-gray-200 pb-2">
         <div className="w-[250px] font-medium">Operation</div>
@@ -721,10 +736,17 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
                         initial={{ width: 0 }}
                         animate={{ width: `${routingWidth}%` }}
                         transition={{ delay: index * 0.02, duration: 0.4 }}
-                        className="absolute h-full bg-amber-200 border-r-2 border-amber-300 rounded-l"
+                        className="absolute h-full bg-amber-200 border-r-2 border-amber-300 rounded-l cursor-help"
                         style={{ left: `${routingLeftPercent}%` }}
-                        title={`Routing Overhead: ${formatDuration(orchestrationTiming.routingOverhead)}`}
-                      />
+                        title={`Routing Overhead: ${formatDuration(orchestrationTiming.routingOverhead)}\nTime between Action Selection completion and call start\nIncludes: Decision time, network setup, handoff preparation`}
+                      >
+                        {/* Routing label on bar if wide enough */}
+                        {routingWidth > 5 && (
+                          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium text-amber-800 px-1">
+                            {formatDuration(orchestrationTiming.routingOverhead)}
+                          </span>
+                        )}
+                      </motion.div>
                     )}
                     {/* Response Time Bar */}
                     {orchestrationTiming.responseTime > 0 && (
@@ -732,17 +754,25 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
                         initial={{ width: 0 }}
                         animate={{ width: `${responseWidth}%` }}
                         transition={{ delay: index * 0.02 + 0.2, duration: 0.4 }}
-                        className={`absolute h-full ${isSubAgent ? 'bg-blue-500' : 'bg-purple-500'} rounded-r`}
+                        className={`absolute h-full ${isSubAgent ? 'bg-blue-500' : 'bg-purple-500'} rounded-r cursor-help`}
                         style={{ left: `calc(${routingLeftPercent}% + ${routingWidth}%)` }}
-                        title={`Response Time: ${formatDuration(orchestrationTiming.responseTime)}`}
-                      />
+                        title={`${isSubAgent ? 'Sub-Agent' : 'MCP'} Response Time: ${formatDuration(orchestrationTiming.responseTime)}\nActual execution time of ${isSubAgent ? 'the sub-agent' : 'the MCP tool'}\nTime spent processing the request`}
+                      >
+                        {/* Response label on bar if wide enough */}
+                        {responseWidth > 5 && (
+                          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium text-white px-1">
+                            {formatDuration(orchestrationTiming.responseTime)}
+                          </span>
+                        )}
+                      </motion.div>
                     )}
                     {/* Total Duration label */}
                     <span 
-                      className="absolute text-[10px] text-white font-medium px-1 top-1/2 -translate-y-1/2 whitespace-nowrap"
+                      className="absolute text-[10px] text-white font-medium px-1 top-1/2 -translate-y-1/2 whitespace-nowrap bg-gray-800 bg-opacity-70 rounded cursor-help"
                       style={{ left: `calc(${routingLeftPercent}% + ${routingWidth}% + ${responseWidth}% / 2 - 50%)` }}
+                      title={`Total Time: ${formatDuration(orchestrationTiming.totalTime)}\nRouting: ${formatDuration(orchestrationTiming.routingOverhead)} + Response: ${formatDuration(orchestrationTiming.responseTime)}`}
                     >
-                      {formatDuration(orchestrationTiming.totalTime)}
+                      Total: {formatDuration(orchestrationTiming.totalTime)}
                     </span>
                   </>
                 ) : (
@@ -793,19 +823,25 @@ function WaterfallView({ traceItems, trace, onItemClick, selectedAction }) {
             <span className="text-gray-600">Error</span>
           </div>
         </div>
-        {/* Orchestration Legend */}
-        <div className="flex flex-wrap gap-4 text-xs text-gray-500 border-t border-gray-100 pt-3">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-amber-200 border border-amber-300" />
-            <span>Routing Overhead</span>
+        {/* Orchestration Legend with Metadata */}
+        <div className="border-t border-gray-100 pt-3">
+          <p className="text-xs font-semibold text-gray-700 mb-2">Orchestration Timing Breakdown:</p>
+          <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+            <div className="flex items-center gap-1.5" title="Time between Action Selection completion and when the sub-agent/MCP call actually starts">
+              <div className="w-3 h-3 rounded bg-amber-200 border border-amber-300" />
+              <span><span className="font-medium">Routing Overhead</span> - Decision & setup time</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Actual execution time of the sub-agent processing the request">
+              <div className="w-3 h-3 rounded bg-blue-500" />
+              <span><span className="font-medium">Sub-Agent Response</span> - Execution time</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Actual execution time of the MCP tool processing the request">
+              <div className="w-3 h-3 rounded bg-purple-500" />
+              <span><span className="font-medium">MCP Response</span> - Tool execution time</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-blue-500" />
-            <span>Sub-Agent Response</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-purple-500" />
-            <span>MCP Response</span>
+          <div className="mt-2 text-[10px] text-gray-500 italic">
+            💡 Hover over bars to see detailed timing breakdown. Split bars only appear for sub-agent and MCP calls.
           </div>
         </div>
       </div>
@@ -2383,6 +2419,46 @@ function ActionDetailPanel({ selectedAction, onClose, onClosePanel }) {
                       </div>
                     </div>
 
+                    {/* Orchestration Timing Breakdown */}
+                    {(() => {
+                      const timing = getOrchestrationTiming(selectedAction, trace);
+                      if (timing) {
+                        return (
+                          <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <h5 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Latency Breakdown
+                            </h5>
+                            <div className="space-y-2 text-xs">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded bg-amber-200 border border-amber-300" />
+                                  <span className="text-gray-600">Routing Overhead</span>
+                                </div>
+                                <span className="font-medium text-gray-900">{formatDuration(timing.routingOverhead)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded bg-blue-500" />
+                                  <span className="text-gray-600">Sub-Agent Response</span>
+                                </div>
+                                <span className="font-medium text-gray-900">{formatDuration(timing.responseTime)}</span>
+                              </div>
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                                <span className="font-semibold text-gray-700">Total Time</span>
+                                <span className="font-bold text-gray-900">{formatDuration(timing.totalTime)}</span>
+                              </div>
+                              <div className="mt-2 text-[10px] text-gray-500 italic">
+                                Routing Overhead: Time between Action Selection completion and call start<br/>
+                                Response Time: Actual execution time of the sub-agent
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     {/* Additional Details */}
                     {selectedAction.data?.['agent.id'] && (
                       <DetailRow label="Agent ID" value={selectedAction.data['agent.id']} />
@@ -2438,6 +2514,46 @@ function ActionDetailPanel({ selectedAction, onClose, onClosePanel }) {
                         <div className="text-lg font-bold text-amber-900">{selectedAction.data?.['retry.count'] || 0}</div>
                       </div>
                     </div>
+
+                    {/* Orchestration Timing Breakdown */}
+                    {(() => {
+                      const timing = getOrchestrationTiming(selectedAction, trace);
+                      if (timing) {
+                        return (
+                          <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <h5 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Latency Breakdown
+                            </h5>
+                            <div className="space-y-2 text-xs">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded bg-amber-200 border border-amber-300" />
+                                  <span className="text-gray-600">Routing Overhead</span>
+                                </div>
+                                <span className="font-medium text-gray-900">{formatDuration(timing.routingOverhead)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded bg-purple-500" />
+                                  <span className="text-gray-600">MCP Response</span>
+                                </div>
+                                <span className="font-medium text-gray-900">{formatDuration(timing.responseTime)}</span>
+                              </div>
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                                <span className="font-semibold text-gray-700">Total Time</span>
+                                <span className="font-bold text-gray-900">{formatDuration(timing.totalTime)}</span>
+                              </div>
+                              <div className="mt-2 text-[10px] text-gray-500 italic">
+                                Routing Overhead: Time between Action Selection completion and call start<br/>
+                                Response Time: Actual execution time of the MCP tool
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* MCP Details */}
                     {selectedAction.data?.['mcp.tool.name'] && (
