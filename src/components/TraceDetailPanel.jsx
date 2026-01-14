@@ -909,25 +909,52 @@ function getSubAgentLatencyBreakdown(item, traceItems) {
   const actionSelection = findActionSelection(traceItems, itemStartTime);
   
   if (actionSelection) {
+    // Routing overhead: time gap between Action Selection completion and sub-agent call start
     const routingOverhead = Math.max(0, itemStartTime - actionSelection.endTime);
-    const responseTime = itemDuration;
+    // Response time: actual sub-agent execution duration (MUST equal item.duration)
+    // This is the time the sub-agent actually spends processing
+    const responseTime = itemDuration; // Always equals item.duration
+    
+    // Math verification:
+    // - routingOverhead: time BEFORE sub-agent starts (gap)
+    // - responseTime: time DURING sub-agent execution (= item.duration)
+    // - totalTime: routingOverhead + responseTime (time from Action Selection end to sub-agent end)
+    // Note: item.duration represents only the sub-agent execution, not including routing overhead
+    
     return {
       routingOverhead,
-      responseTime,
-      totalTime: routingOverhead + responseTime,
+      responseTime, // Always equals item.duration
+      totalTime: routingOverhead + responseTime, // Total time span
     };
   }
   
   // If no action selection found, try to use handoff.latency attribute if available
   if (item.data?.['handoff.latency']) {
     const handoffLatency = item.data['handoff.latency'];
-    // Assume routing overhead is a small portion (e.g., 10-20%) of handoff latency
-    const routingOverhead = Math.min(handoffLatency * 0.15, itemDuration * 0.2);
-    const responseTime = itemDuration - routingOverhead;
+    // handoff.latency may represent total handoff time or just routing overhead
+    // item.duration is the actual sub-agent execution time
+    // If handoff.latency > item.duration, the difference is routing overhead
+    // Otherwise, estimate routing overhead as a small portion
+    let routingOverhead = 0;
+    if (handoffLatency > itemDuration) {
+      // handoff.latency includes routing overhead + some processing
+      routingOverhead = Math.min(handoffLatency - itemDuration, itemDuration * 0.3); // Cap at 30% of duration
+    } else {
+      // If handoff.latency <= item.duration, estimate routing overhead
+      routingOverhead = Math.min(itemDuration * 0.1, 200); // Max 10% or 200ms
+    }
+    // Response time ALWAYS equals item.duration (the actual sub-agent execution time)
+    const responseTime = itemDuration;
+    
+    // Math verification:
+    // - responseTime = item.duration (always)
+    // - routingOverhead = estimated or calculated gap
+    // - totalTime = routingOverhead + responseTime
+    
     return {
       routingOverhead: Math.max(0, routingOverhead),
-      responseTime: Math.max(0, responseTime),
-      totalTime: itemDuration,
+      responseTime, // Always equals item.duration
+      totalTime: routingOverhead + responseTime,
     };
   }
   
@@ -1047,18 +1074,25 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
         {(() => {
           const latencyBreakdown = getSubAgentLatencyBreakdown(item, traceItems);
           if (latencyBreakdown) {
+            // Math verification: responseTime MUST equal item.duration
+            // routingOverhead is the gap BEFORE sub-agent starts
+            // responseTime is the sub-agent execution time (= item.duration)
+            const routingOverhead = latencyBreakdown.routingOverhead;
+            const responseTime = item.duration; // Always use item.duration for consistency
+            const totalTime = routingOverhead + responseTime;
+            
             return (
               <div className="flex items-center gap-2 ml-auto pr-3 flex-shrink-0">
                 <div className="flex items-center gap-1 text-xs">
-                  <span className="text-amber-600 font-medium" title="Routing Overhead: Time between Action Selection completion and sub-agent call start">
-                    R: {formatDuration(latencyBreakdown.routingOverhead)}
+                  <span className="text-amber-600 font-medium" title={`Routing Overhead: ${formatDuration(routingOverhead)}\nTime between Action Selection completion and sub-agent call start`}>
+                    R: {formatDuration(routingOverhead)}
                   </span>
                   <span className="text-gray-300">|</span>
-                  <span className="text-blue-600 font-medium" title="Sub-Agent Response Time: Actual execution time">
-                    S: {formatDuration(latencyBreakdown.responseTime)}
+                  <span className="text-blue-600 font-medium" title={`Sub-Agent Response: ${formatDuration(responseTime)}\nActual execution time of the sub-agent (equals duration)`}>
+                    S: {formatDuration(responseTime)}
                   </span>
                 </div>
-                <span className="text-xs text-gray-400 font-mono">
+                <span className="text-xs text-gray-400 font-mono" title={`Sub-Agent Duration: ${formatDuration(item.duration)}\nTotal Time Span: ${formatDuration(totalTime)} (R + S)`}>
                   ({formatDuration(item.duration)})
                 </span>
               </div>
