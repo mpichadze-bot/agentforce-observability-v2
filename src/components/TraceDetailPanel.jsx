@@ -1079,7 +1079,7 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
             // responseTime is the sub-agent execution time (= item.duration)
             const routingOverhead = latencyBreakdown.routingOverhead;
             const responseTime = item.duration; // Always use item.duration for consistency
-            const totalTime = routingOverhead + responseTime;
+            const totalTime = routingOverhead + responseTime; // Total time span from Action Selection end to sub-agent completion
             
             return (
               <div className="flex items-center gap-2 ml-auto pr-3 flex-shrink-0">
@@ -1092,8 +1092,8 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
                     S: {formatDuration(responseTime)}
                   </span>
                 </div>
-                <span className="text-xs text-gray-400 font-mono" title={`Sub-Agent Duration: ${formatDuration(item.duration)}\nTotal Time Span: ${formatDuration(totalTime)} (R + S)`}>
-                  ({formatDuration(item.duration)})
+                <span className="text-xs text-gray-400 font-mono" title={`Total Time Span: ${formatDuration(totalTime)}\n(R: ${formatDuration(routingOverhead)} + S: ${formatDuration(responseTime)})`}>
+                  ({formatDuration(totalTime)})
                 </span>
               </div>
             );
