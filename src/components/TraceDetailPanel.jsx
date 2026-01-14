@@ -401,6 +401,91 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
   // State to track which message's orchestration is expanded
   const [expandedOrchestration, setExpandedOrchestration] = useState({});
   
+  // Calculate agent message latency breakdown
+  const getAgentMessageLatencyBreakdown = (messageIndex) => {
+    // Find the root supervisor span
+    const rootSpan = trace.spans?.find(s => !s.parent_span_id || s.parent_span_id === s.span_id);
+    if (!rootSpan) return null;
+    
+    // Get orchestration events for this message to determine timing
+    const orchestration = orchestrationByMessage[messageIndex];
+    
+    let earliestStart, latestEnd;
+    
+    if (orchestration && (orchestration.subAgents.length > 0 || orchestration.mcps.length > 0)) {
+      // Calculate timing based on orchestration events
+      const allEvents = [...orchestration.subAgents, ...orchestration.mcps];
+      earliestStart = Math.min(...allEvents.map(e => e.startTime));
+      latestEnd = Math.max(...allEvents.map(e => e.startTime + e.duration));
+    } else {
+      // If no orchestration events, estimate based on message index and trace duration
+      const totalDuration = trace.duration || rootSpan.duration || 8000;
+      if (messageIndex === 0) {
+        earliestStart = 0;
+        latestEnd = totalDuration * 0.33;
+      } else if (messageIndex === 1) {
+        earliestStart = totalDuration * 0.33;
+        latestEnd = totalDuration * 0.67;
+      } else {
+        earliestStart = totalDuration * 0.67;
+        latestEnd = totalDuration;
+      }
+    }
+    
+    // Find the Action Selection that precedes the first orchestration event
+    const findPrecedingActionSelection = (targetTime) => {
+      let lastActionSelection = null;
+      const traverse = (spans) => {
+        spans.forEach(s => {
+          const isActionSelection = s.attributes?.['operation.type'] === 'action-selection' ||
+                                   s.name === 'Action Selection';
+          if (isActionSelection) {
+            const sStartTime = s.start_time || 0;
+            const sEndTime = sStartTime + (s.duration || 0);
+            if (sEndTime <= targetTime) {
+              if (!lastActionSelection || sEndTime > lastActionSelection.endTime) {
+                lastActionSelection = {
+                  startTime: sStartTime,
+                  endTime: sEndTime,
+                };
+              }
+            }
+          }
+          if (s.children) {
+            traverse(s.children);
+          }
+        });
+      };
+      traverse(trace.spans || []);
+      return lastActionSelection;
+    };
+    
+    const actionSelection = findPrecedingActionSelection(earliestStart);
+    
+    // Calculate routing overhead: time from Action Selection end to first orchestration start
+    // If no Action Selection found, estimate based on message index
+    let routingOverhead = 0;
+    if (actionSelection) {
+      routingOverhead = Math.max(0, earliestStart - actionSelection.endTime);
+    } else {
+      // Estimate routing overhead based on message index
+      const estimatedDuration = latestEnd - earliestStart;
+      routingOverhead = messageIndex === 0 ? Math.min(estimatedDuration * 0.1, 200) :
+                       messageIndex === 1 ? Math.min(estimatedDuration * 0.15, 300) :
+                       Math.min(estimatedDuration * 0.2, 400);
+    }
+    
+    // Response time: time from first orchestration start to last orchestration end
+    const responseTime = latestEnd - earliestStart;
+    const totalTime = routingOverhead + responseTime;
+    
+    return {
+      routingOverhead: Math.max(0, routingOverhead),
+      responseTime: Math.max(0, responseTime),
+      totalTime: Math.max(0, totalTime),
+    };
+  };
+  
   const toggleOrchestration = (messageIndex) => {
     setExpandedOrchestration(prev => ({
       ...prev,
@@ -603,7 +688,29 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                   Hello! Thank you for reaching out to Pronto Food Delivery support. I'd be happy to assist you with performance insights. Can I start by getting your user ID, please?
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
-                  <p className="text-[10px] text-gray-400">Agent (Complete: 5 sec)</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-gray-400">Agent</span>
+                    {(() => {
+                      const latencyBreakdown = getAgentMessageLatencyBreakdown(0);
+                      if (latencyBreakdown) {
+                        return (
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <span className="text-amber-600 font-medium">
+                              R: {formatDuration(latencyBreakdown.routingOverhead)}
+                            </span>
+                            <span className="text-gray-300">|</span>
+                            <span className="text-blue-600 font-medium">
+                              S: {formatDuration(latencyBreakdown.responseTime)}
+                            </span>
+                            <span className="text-gray-400 font-mono">
+                              ({formatDuration(latencyBreakdown.totalTime)})
+                            </span>
+                          </div>
+                        );
+                      }
+                      return <span className="text-[10px] text-gray-400">(Complete: 5 sec)</span>;
+                    })()}
+                  </div>
                   {/* Orchestration indicators for message 0 */}
                   {renderOrchestration(0)}
                 </div>
@@ -631,7 +738,29 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                   Thank you for sharing your user ID, USER12345. Could you also let me know which Pronto product this inquiry is related to, or if it's a general issue?
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
-                  <p className="text-[10px] text-gray-400">Agent (Complete: 5 sec)</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-gray-400">Agent</span>
+                    {(() => {
+                      const latencyBreakdown = getAgentMessageLatencyBreakdown(1);
+                      if (latencyBreakdown) {
+                        return (
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <span className="text-amber-600 font-medium">
+                              R: {formatDuration(latencyBreakdown.routingOverhead)}
+                            </span>
+                            <span className="text-gray-300">|</span>
+                            <span className="text-blue-600 font-medium">
+                              S: {formatDuration(latencyBreakdown.responseTime)}
+                            </span>
+                            <span className="text-gray-400 font-mono">
+                              ({formatDuration(latencyBreakdown.totalTime)})
+                            </span>
+                          </div>
+                        );
+                      }
+                      return <span className="text-[10px] text-gray-400">(Complete: 5 sec)</span>;
+                    })()}
+                  </div>
                   {/* Orchestration indicators for message 1 */}
                   {renderOrchestration(1)}
                 </div>
@@ -659,7 +788,29 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                   Got it! I'll assist you with insights related to the Restaurant Performance Analytics product. Feel free to ask your questions, and I'll provide as much detail as possible!
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
-                  <p className="text-[10px] text-gray-400">Agent (Complete: 8 sec)</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-gray-400">Agent</span>
+                    {(() => {
+                      const latencyBreakdown = getAgentMessageLatencyBreakdown(2);
+                      if (latencyBreakdown) {
+                        return (
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <span className="text-amber-600 font-medium">
+                              R: {formatDuration(latencyBreakdown.routingOverhead)}
+                            </span>
+                            <span className="text-gray-300">|</span>
+                            <span className="text-blue-600 font-medium">
+                              S: {formatDuration(latencyBreakdown.responseTime)}
+                            </span>
+                            <span className="text-gray-400 font-mono">
+                              ({formatDuration(latencyBreakdown.totalTime)})
+                            </span>
+                          </div>
+                        );
+                      }
+                      return <span className="text-[10px] text-gray-400">(Complete: 8 sec)</span>;
+                    })()}
+                  </div>
                   {/* Orchestration indicators for message 2 */}
                   {renderOrchestration(2)}
                 </div>
