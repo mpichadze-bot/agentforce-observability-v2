@@ -277,20 +277,7 @@ function extractSubAgentAndMCPCalls(trace) {
 }
 
 function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
-  const [expandedCalls, setExpandedCalls] = useState(new Set());
   const subAgentAndMCPCalls = useMemo(() => extractSubAgentAndMCPCalls(trace), [trace]);
-  
-  const toggleCallExpansion = (callId) => {
-    setExpandedCalls(prev => {
-      const next = new Set(prev);
-      if (next.has(callId)) {
-        next.delete(callId);
-      } else {
-        next.add(callId);
-      }
-      return next;
-    });
-  };
   
   const formatLatency = (ms) => {
     if (ms < 1) return '<1ms';
@@ -345,86 +332,19 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
             </div>
 
             {/* Agent Response */}
-            <div className="mb-3">
-              <div 
-                className="flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => onMessageClick && onMessageClick('trace')}
-              >
-                <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-3.5 h-3.5 text-blue-600" />
-                </div>
-                <div>
-                  <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
-                    Hello! Thank you for reaching out to Pronto Food Delivery support. I'd be happy to assist you with performance insights. Can I start by getting your user ID, please?
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 5 sec)</p>
-                </div>
+            <div 
+              className="mb-3 flex items-start gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => onMessageClick && onMessageClick('trace')}
+            >
+              <div className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center flex-shrink-0">
+                <Bot className="w-3.5 h-3.5 text-blue-600" />
               </div>
-              
-              {/* Sub-Agent/MCP Calls */}
-              {subAgentAndMCPCalls.length > 0 && (
-                <div className="ml-8 mt-2 space-y-2">
-                  {subAgentAndMCPCalls.map((call, idx) => {
-                    const callId = `call-${call.startTime}-${idx}`;
-                    const isExpanded = expandedCalls.has(callId);
-                    const Icon = call.type === 'sub-agent' ? Bot : Wrench;
-                    const iconColor = call.type === 'sub-agent' ? 'text-blue-600' : 'text-purple-600';
-                    const bgColor = call.type === 'sub-agent' ? 'bg-blue-50' : 'bg-purple-50';
-                    const borderColor = call.type === 'sub-agent' ? 'border-blue-200' : 'border-purple-200';
-                    
-                    return (
-                      <div key={callId} className={`border ${borderColor} rounded-lg ${bgColor} overflow-hidden`}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleCallExpansion(callId);
-                          }}
-                          className="w-full px-3 py-2 flex items-center justify-between hover:opacity-80 transition-opacity"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Icon className={`w-4 h-4 ${iconColor}`} />
-                            <span className="text-xs font-medium text-gray-700">
-                              {call.type === 'sub-agent' ? 'Sub-Agent' : 'MCP'}: {call.name}
-                            </span>
-                            <span className="text-[10px] text-gray-500">
-                              Routing: {formatLatency(call.routingOverhead)} | Response: {formatLatency(call.responseTime)} | Total: {formatLatency(call.totalTime)}
-                            </span>
-                          </div>
-                          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        {isExpanded && (
-                          <div className="px-3 pb-3 pt-2 border-t border-gray-200 bg-white space-y-2">
-                            {/* Raw Response */}
-                            {call.rawResponse && (
-                              <div>
-                                <p className="text-[10px] font-semibold text-gray-500 mb-1">Raw Response:</p>
-                                <div className="px-3 py-2 bg-gray-50 rounded text-xs text-gray-700 border border-gray-200">
-                                  {call.rawResponse}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Synthesized Response */}
-                            {call.synthesizedResponse && (
-                              <div>
-                                <p className="text-[10px] font-semibold text-gray-500 mb-1">Synthesized Response:</p>
-                                <div className="px-3 py-2 bg-blue-50 rounded text-xs text-gray-700 border border-blue-200">
-                                  {call.synthesizedResponse}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {!call.rawResponse && !call.synthesizedResponse && (
-                              <p className="text-xs text-gray-400 italic">No response data available</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+              <div>
+                <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
+                  Hello! Thank you for reaching out to Pronto Food Delivery support. I'd be happy to assist you with performance insights. Can I start by getting your user ID, please?
                 </div>
-              )}
+                <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 5 sec)</p>
+              </div>
             </div>
 
             {/* User ID */}
@@ -491,6 +411,147 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
           </div>
         </div>
       </div>
+      
+      {/* Orchestration Timeline Visualization */}
+      {subAgentAndMCPCalls.length > 0 && (
+        <div className="border-t border-gray-200 bg-white">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900">Orchestration Timeline</h3>
+            <p className="text-xs text-gray-500 mt-1">Sub-Agent and MCP invocations with latency breakdown</p>
+          </div>
+          <div className="p-4">
+            <OrchestrationTimeline calls={subAgentAndMCPCalls} formatLatency={formatLatency} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Orchestration Timeline Visualization Component
+function OrchestrationTimeline({ calls, formatLatency }) {
+  const [expandedCall, setExpandedCall] = useState(null);
+  const [hoveredCall, setHoveredCall] = useState(null);
+  
+  // Calculate max time for scaling
+  const maxTime = Math.max(...calls.map(call => call.totalTime), 1000);
+  const scaleFactor = 100 / maxTime; // Scale to percentage
+  
+  return (
+    <div className="space-y-2">
+      {/* Legend */}
+      <div className="flex items-center gap-4 mb-4 text-xs">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 bg-amber-200 border border-amber-300 rounded" />
+          <span className="text-gray-600">Routing Overhead</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 bg-blue-200 border border-blue-300 rounded" />
+          <span className="text-gray-600">Response Time</span>
+        </div>
+      </div>
+      
+      {/* Timeline bars */}
+      {calls.map((call, idx) => {
+        const callId = `timeline-call-${idx}`;
+        const isExpanded = expandedCall === callId;
+        const isHovered = hoveredCall === callId;
+        const Icon = call.type === 'sub-agent' ? Bot : Wrench;
+        const iconColor = call.type === 'sub-agent' ? 'text-blue-600' : 'text-purple-600';
+        const bgColor = call.type === 'sub-agent' ? 'bg-blue-50' : 'bg-purple-50';
+        const borderColor = call.type === 'sub-agent' ? 'border-blue-200' : 'border-purple-200';
+        
+        const routingWidth = (call.routingOverhead / maxTime) * 100;
+        const responseWidth = (call.responseTime / maxTime) * 100;
+        const totalWidth = routingWidth + responseWidth;
+        
+        return (
+          <div
+            key={callId}
+            className={`border ${borderColor} rounded-lg ${bgColor} overflow-hidden transition-all ${
+              isHovered ? 'shadow-md' : 'shadow-sm'
+            }`}
+            onMouseEnter={() => setHoveredCall(callId)}
+            onMouseLeave={() => setHoveredCall(null)}
+          >
+            {/* Header */}
+            <button
+              onClick={() => setExpandedCall(isExpanded ? null : callId)}
+              className="w-full px-3 py-2.5 flex items-center justify-between hover:opacity-90 transition-opacity"
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Icon className={`w-4 h-4 ${iconColor} flex-shrink-0`} />
+                <span className="text-xs font-medium text-gray-700 truncate">
+                  {call.type === 'sub-agent' ? 'Sub-Agent' : 'MCP'}: {call.name}
+                </span>
+                <span className="text-[10px] text-gray-500 flex-shrink-0">
+                  Routing: {formatLatency(call.routingOverhead)} | Response: {formatLatency(call.responseTime)} | Total: {formatLatency(call.totalTime)}
+                </span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* Timeline Bar */}
+            <div className="px-3 pb-2">
+              <div className="relative h-6 bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                {/* Routing Overhead Bar */}
+                {call.routingOverhead > 0 && (
+                  <div
+                    className="absolute left-0 top-0 h-full bg-amber-200 border-r border-amber-300"
+                    style={{ width: `${routingWidth}%` }}
+                    title={`Routing: ${formatLatency(call.routingOverhead)}`}
+                  />
+                )}
+                {/* Response Time Bar */}
+                {call.responseTime > 0 && (
+                  <div
+                    className="absolute h-full bg-blue-200 border-r border-blue-300"
+                    style={{ 
+                      left: `${routingWidth}%`,
+                      width: `${responseWidth}%`
+                    }}
+                    title={`Response: ${formatLatency(call.responseTime)}`}
+                  />
+                )}
+                {/* Labels */}
+                <div className="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-medium text-gray-700">
+                  <span>{formatLatency(call.routingOverhead)}</span>
+                  <span>{formatLatency(call.totalTime)}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Expanded Details */}
+            {isExpanded && (
+              <div className="px-3 pb-3 pt-2 border-t border-gray-200 bg-white space-y-2">
+                {/* Raw Response */}
+                {call.rawResponse && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-500 mb-1">Raw Response:</p>
+                    <div className="px-3 py-2 bg-gray-50 rounded text-xs text-gray-700 border border-gray-200 max-h-32 overflow-y-auto">
+                      {call.rawResponse}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Synthesized Response */}
+                {call.synthesizedResponse && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-500 mb-1">Synthesized Response:</p>
+                    <div className="px-3 py-2 bg-blue-50 rounded text-xs text-gray-700 border border-blue-200 max-h-32 overflow-y-auto">
+                      {call.synthesizedResponse}
+                    </div>
+                  </div>
+                )}
+                
+                {!call.rawResponse && !call.synthesizedResponse && (
+                  <p className="text-xs text-gray-400 italic">No response data available</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
