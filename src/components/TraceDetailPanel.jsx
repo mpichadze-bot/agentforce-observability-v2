@@ -1571,6 +1571,8 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
         return <Bot className="w-3.5 h-3.5 text-blue-500" />;
       case 'mcp':
         return <Wrench className="w-3.5 h-3.5 text-purple-600" />;
+      case 'mcp-group':
+        return <Database className="w-3.5 h-3.5 text-purple-500" />;
       case 'agent-response':
         // Sub-Agent Response: Shows the actual output/data returned by the sub-agent
         return <ArrowDownCircle className="w-3.5 h-3.5 text-green-500" />;
@@ -3384,7 +3386,88 @@ function buildSpanItem(span, allSpansFlat) {
   if (childSpans && childSpans.length > 0) {
     // Sort children by start_time
     childSpans = [...childSpans].sort((a, b) => (a.start_time || 0) - (b.start_time || 0));
-    item.children = childSpans.map(child => buildSpanItem(child, allSpansFlat));
+    
+    // Group MCPs by server/provider if there are multiple MCPs from the same server
+    const groupedChildren = [];
+    const mcpGroups = new Map(); // Map<serverName, MCP spans>
+    const nonMcpChildren = [];
+    
+    childSpans.forEach(child => {
+      const isMCP = child.attributes?.['mcp.tool.name'] || child.attributes?.['tool.name'];
+      if (isMCP) {
+        // Get server/provider name
+        const serverName = child.attributes?.['service.name'] || 
+                          child.attributes?.['mcp.provider'] || 
+                          child.attributes?.['tool.provider'] ||
+                          'MCP Server';
+        
+        if (!mcpGroups.has(serverName)) {
+          mcpGroups.set(serverName, []);
+        }
+        mcpGroups.get(serverName).push(child);
+      } else {
+        nonMcpChildren.push(child);
+      }
+    });
+    
+    // Build final children list maintaining chronological order
+    const allItems = [];
+    let mcpGroupIndex = 0;
+    let nonMcpIndex = 0;
+    
+    // Merge MCP groups and non-MCP children in chronological order
+    while (mcpGroupIndex < mcpGroups.size || nonMcpIndex < nonMcpChildren.length) {
+      // Get next MCP group start time
+      let nextMcpGroupStart = Infinity;
+      let nextMcpGroupName = null;
+      let nextMcpGroupSpans = null;
+      
+      mcpGroups.forEach((mcpSpans, serverName) => {
+        const firstStartTime = Math.min(...mcpSpans.map(s => s.start_time || 0));
+        if (firstStartTime < nextMcpGroupStart) {
+          nextMcpGroupStart = firstStartTime;
+          nextMcpGroupName = serverName;
+          nextMcpGroupSpans = mcpSpans;
+        }
+      });
+      
+      // Get next non-MCP child start time
+      const nextNonMcpStart = nonMcpIndex < nonMcpChildren.length 
+        ? (nonMcpChildren[nonMcpIndex].start_time || 0) 
+        : Infinity;
+      
+      // Add whichever comes first chronologically
+      if (nextMcpGroupStart < nextNonMcpStart && nextMcpGroupName) {
+        // Only create group if there are 2+ MCPs from the same server
+        if (nextMcpGroupSpans.length > 1) {
+          const mcpGroupItem = {
+            id: `mcp-group-${nextMcpGroupName}-${span.span_id}`,
+            type: 'mcp-group',
+            label: `${nextMcpGroupName} (${nextMcpGroupSpans.length} tools)`,
+            duration: Math.max(...nextMcpGroupSpans.map(s => (s.start_time || 0) + (s.duration || 0))) - Math.min(...nextMcpGroupSpans.map(s => s.start_time || 0)),
+            status: nextMcpGroupSpans.some(s => s.status === 'ERROR' || s.attributes?.error) ? 'error' : 'success',
+            children: nextMcpGroupSpans.map(mcpSpan => buildSpanItem(mcpSpan, allSpansFlat)),
+            data: {
+              'service.name': nextMcpGroupName,
+              'mcp.tool.count': nextMcpGroupSpans.length,
+            },
+          };
+          allItems.push(mcpGroupItem);
+        } else {
+          // Single MCP, add directly without grouping
+          allItems.push(buildSpanItem(nextMcpGroupSpans[0], allSpansFlat));
+        }
+        mcpGroups.delete(nextMcpGroupName);
+        mcpGroupIndex++;
+      } else if (nonMcpIndex < nonMcpChildren.length) {
+        allItems.push(buildSpanItem(nonMcpChildren[nonMcpIndex], allSpansFlat));
+        nonMcpIndex++;
+      } else {
+        break;
+      }
+    }
+    
+    item.children = allItems;
   }
   
   return item;
