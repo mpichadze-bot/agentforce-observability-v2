@@ -253,6 +253,8 @@ function getOrchestrationByMessage(trace) {
           name: toolName,
           startTime: span.start_time,
           duration: span.duration,
+          spanId: span.span_id,
+          span: span, // Keep reference to span for latency calculation
         });
       }
       
@@ -376,7 +378,12 @@ function getOrchestrationByMessage(trace) {
       } else if (event.type === 'mcp') {
         const exists = orchestrationByMessage[messageIndex].mcps.some(m => m.name === event.name);
         if (!exists) {
-          orchestrationByMessage[messageIndex].mcps.push(event);
+          // Calculate latency breakdown for this MCP
+          const latencyBreakdown = event.span ? calculateLatencyBreakdown(event.span, trace.spans) : null;
+          orchestrationByMessage[messageIndex].mcps.push({
+            ...event,
+            latencyBreakdown,
+          });
         }
       }
     });
@@ -476,10 +483,27 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                         </div>
                       ))}
                       {orchestrationByMessage[0].mcps.map((mcp, idx) => (
-                        <span key={`mcp-0-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
-                          <Wrench className="w-2.5 h-2.5" />
-                          {mcp.name}
-                        </span>
+                        <div key={`mcp-0-${idx}`} className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
+                            <Wrench className="w-2.5 h-2.5" />
+                            {mcp.name}
+                          </span>
+                          {/* Latency breakdown for MCP */}
+                          {mcp.latencyBreakdown && (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(mcp.latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-purple-600 font-medium">
+                                S: {formatDuration(mcp.latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(mcp.latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
@@ -536,10 +560,27 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                         </div>
                       ))}
                       {orchestrationByMessage[1].mcps.map((mcp, idx) => (
-                        <span key={`mcp-1-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
-                          <Wrench className="w-2.5 h-2.5" />
-                          {mcp.name}
-                        </span>
+                        <div key={`mcp-1-${idx}`} className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
+                            <Wrench className="w-2.5 h-2.5" />
+                            {mcp.name}
+                          </span>
+                          {/* Latency breakdown for MCP */}
+                          {mcp.latencyBreakdown && (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(mcp.latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-purple-600 font-medium">
+                                S: {formatDuration(mcp.latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(mcp.latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
@@ -596,10 +637,27 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                         </div>
                       ))}
                       {orchestrationByMessage[2].mcps.map((mcp, idx) => (
-                        <span key={`mcp-2-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
-                          <Wrench className="w-2.5 h-2.5" />
-                          {mcp.name}
-                        </span>
+                        <div key={`mcp-2-${idx}`} className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
+                            <Wrench className="w-2.5 h-2.5" />
+                            {mcp.name}
+                          </span>
+                          {/* Latency breakdown for MCP */}
+                          {mcp.latencyBreakdown && (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(mcp.latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-purple-600 font-medium">
+                                S: {formatDuration(mcp.latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(mcp.latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
