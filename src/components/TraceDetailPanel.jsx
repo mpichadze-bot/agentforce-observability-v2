@@ -493,6 +493,18 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
     }));
   };
   
+  // Helper to check if a span has errors
+  const hasError = (span) => {
+    if (!span) return false;
+    return (
+      span.status === 'ERROR' ||
+      span.statusEnum === 'FAILURE' ||
+      span.attributes?.error === true ||
+      span.attributes?.['error.code'] ||
+      (span.attributes?.['http.status_code'] && span.attributes['http.status_code'] >= 400)
+    );
+  };
+  
   // Helper to render orchestration items (agents + MCPs) with collapse functionality
   const renderOrchestration = (messageIndex) => {
     const orchestration = orchestrationByMessage[messageIndex];
@@ -505,55 +517,72 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
     if (totalCount <= 1) {
       return (
         <div className="flex flex-col gap-1.5">
-          {orchestration.subAgents.map((agent, idx) => (
-            <div key={`sub-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
-                <Bot className="w-2.5 h-2.5" />
-                {agent.name}
-              </span>
-              {agent.latencyBreakdown && (
-                <div className="flex items-center gap-1 text-[10px]">
-                  <span className="text-amber-600 font-medium">
-                    R: {formatDuration(agent.latencyBreakdown.routingOverhead)}
-                  </span>
-                  <span className="text-gray-300">|</span>
-                  <span className="text-blue-600 font-medium">
-                    S: {formatDuration(agent.latencyBreakdown.responseTime)}
-                  </span>
-                  <span className="text-gray-400 font-mono">
-                    ({formatDuration(agent.latencyBreakdown.totalTime)})
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
-          {orchestration.mcps.map((mcp, idx) => (
-            <div key={`mcp-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
-                <Wrench className="w-2.5 h-2.5" />
-                {mcp.name}
-              </span>
-              {mcp.latencyBreakdown && (
-                <div className="flex items-center gap-1 text-[10px]">
-                  <span className="text-amber-600 font-medium">
-                    R: {formatDuration(mcp.latencyBreakdown.routingOverhead)}
-                  </span>
-                  <span className="text-gray-300">|</span>
-                  <span className="text-purple-600 font-medium">
-                    S: {formatDuration(mcp.latencyBreakdown.responseTime)}
-                  </span>
-                  <span className="text-gray-400 font-mono">
-                    ({formatDuration(mcp.latencyBreakdown.totalTime)})
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
+          {orchestration.subAgents.map((agent, idx) => {
+            const agentHasError = hasError(agent.span);
+            return (
+              <div key={`sub-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border ${
+                  agentHasError 
+                    ? 'bg-red-50 text-red-700 border-red-200' 
+                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                }`} title={`Orchestrated to sub-agent: ${agent.name}${agentHasError ? ' (Error)' : ''}`}>
+                  <Bot className="w-2.5 h-2.5" />
+                  {agent.name}
+                </span>
+                {agent.latencyBreakdown && (
+                  <div className="flex items-center gap-1 text-[10px]">
+                    <span className="text-amber-600 font-medium">
+                      R: {formatDuration(agent.latencyBreakdown.routingOverhead)}
+                    </span>
+                    <span className="text-gray-300">|</span>
+                    <span className={agentHasError ? 'text-red-600 font-medium' : 'text-blue-600 font-medium'}>
+                      S: {formatDuration(agent.latencyBreakdown.responseTime)}
+                    </span>
+                    <span className="text-gray-400 font-mono">
+                      ({formatDuration(agent.latencyBreakdown.totalTime)})
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {orchestration.mcps.map((mcp, idx) => {
+            const mcpHasError = hasError(mcp.span);
+            return (
+              <div key={`mcp-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border ${
+                  mcpHasError 
+                    ? 'bg-red-50 text-red-700 border-red-200' 
+                    : 'bg-purple-50 text-purple-700 border-purple-200'
+                }`} title={`Used MCP tool: ${mcp.name}${mcpHasError ? ' (Error)' : ''}`}>
+                  <Wrench className="w-2.5 h-2.5" />
+                  {mcp.name}
+                </span>
+                {mcp.latencyBreakdown && (
+                  <div className="flex items-center gap-1 text-[10px]">
+                    <span className="text-amber-600 font-medium">
+                      R: {formatDuration(mcp.latencyBreakdown.routingOverhead)}
+                    </span>
+                    <span className="text-gray-300">|</span>
+                    <span className={mcpHasError ? 'text-red-600 font-medium' : 'text-purple-600 font-medium'}>
+                      S: {formatDuration(mcp.latencyBreakdown.responseTime)}
+                    </span>
+                    <span className="text-gray-400 font-mono">
+                      ({formatDuration(mcp.latencyBreakdown.totalTime)})
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       );
     }
     
     // If more than 1 item, show collapsible section
+    // Check if there are any errors
+    const hasAnyErrors = [...orchestration.subAgents, ...orchestration.mcps].some(item => hasError(item.span));
+    
     return (
       <div className="flex flex-col gap-1.5">
         <button
@@ -561,7 +590,9 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
             e.stopPropagation();
             toggleOrchestration(messageIndex);
           }}
-          className="flex items-center gap-1.5 text-[10px] text-gray-600 hover:text-gray-900 transition-colors self-start"
+          className={`flex items-center gap-1.5 text-[10px] transition-colors self-start ${
+            hasAnyErrors ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-gray-900'
+          }`}
         >
           {isExpanded ? (
             <ChevronDown className="w-3 h-3" />
@@ -575,54 +606,69 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
               ? `${orchestration.subAgents.length} agent${orchestration.subAgents.length !== 1 ? 's' : ''}`
               : `${orchestration.mcps.length} MCP${orchestration.mcps.length !== 1 ? 's' : ''}`
             }
+            {hasAnyErrors && <span className="ml-1 text-red-600">⚠</span>}
           </span>
         </button>
         {isExpanded && (
           <div className="flex flex-col gap-1.5 pl-4">
-            {orchestration.subAgents.map((agent, idx) => (
-              <div key={`sub-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
-                  <Bot className="w-2.5 h-2.5" />
-                  {agent.name}
-                </span>
-                {agent.latencyBreakdown && (
-                  <div className="flex items-center gap-1 text-[10px]">
-                    <span className="text-amber-600 font-medium">
-                      R: {formatDuration(agent.latencyBreakdown.routingOverhead)}
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    <span className="text-blue-600 font-medium">
-                      S: {formatDuration(agent.latencyBreakdown.responseTime)}
-                    </span>
-                    <span className="text-gray-400 font-mono">
-                      ({formatDuration(agent.latencyBreakdown.totalTime)})
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
-            {orchestration.mcps.map((mcp, idx) => (
-              <div key={`mcp-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
-                  <Wrench className="w-2.5 h-2.5" />
-                  {mcp.name}
-                </span>
-                {mcp.latencyBreakdown && (
-                  <div className="flex items-center gap-1 text-[10px]">
-                    <span className="text-amber-600 font-medium">
-                      R: {formatDuration(mcp.latencyBreakdown.routingOverhead)}
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    <span className="text-purple-600 font-medium">
-                      S: {formatDuration(mcp.latencyBreakdown.responseTime)}
-                    </span>
-                    <span className="text-gray-400 font-mono">
-                      ({formatDuration(mcp.latencyBreakdown.totalTime)})
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
+            {orchestration.subAgents.map((agent, idx) => {
+              const agentHasError = hasError(agent.span);
+              return (
+                <div key={`sub-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border ${
+                    agentHasError 
+                      ? 'bg-red-50 text-red-700 border-red-200' 
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
+                  }`} title={`Orchestrated to sub-agent: ${agent.name}${agentHasError ? ' (Error)' : ''}`}>
+                    <Bot className="w-2.5 h-2.5" />
+                    {agent.name}
+                  </span>
+                  {agent.latencyBreakdown && (
+                    <div className="flex items-center gap-1 text-[10px]">
+                      <span className="text-amber-600 font-medium">
+                        R: {formatDuration(agent.latencyBreakdown.routingOverhead)}
+                      </span>
+                      <span className="text-gray-300">|</span>
+                      <span className={agentHasError ? 'text-red-600 font-medium' : 'text-blue-600 font-medium'}>
+                        S: {formatDuration(agent.latencyBreakdown.responseTime)}
+                      </span>
+                      <span className="text-gray-400 font-mono">
+                        ({formatDuration(agent.latencyBreakdown.totalTime)})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {orchestration.mcps.map((mcp, idx) => {
+              const mcpHasError = hasError(mcp.span);
+              return (
+                <div key={`mcp-${messageIndex}-${idx}`} className="flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border ${
+                    mcpHasError 
+                      ? 'bg-red-50 text-red-700 border-red-200' 
+                      : 'bg-purple-50 text-purple-700 border-purple-200'
+                  }`} title={`Used MCP tool: ${mcp.name}${mcpHasError ? ' (Error)' : ''}`}>
+                    <Wrench className="w-2.5 h-2.5" />
+                    {mcp.name}
+                  </span>
+                  {mcp.latencyBreakdown && (
+                    <div className="flex items-center gap-1 text-[10px]">
+                      <span className="text-amber-600 font-medium">
+                        R: {formatDuration(mcp.latencyBreakdown.routingOverhead)}
+                      </span>
+                      <span className="text-gray-300">|</span>
+                      <span className={mcpHasError ? 'text-red-600 font-medium' : 'text-purple-600 font-medium'}>
+                        S: {formatDuration(mcp.latencyBreakdown.responseTime)}
+                      </span>
+                      <span className="text-gray-400 font-mono">
+                        ({formatDuration(mcp.latencyBreakdown.totalTime)})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
