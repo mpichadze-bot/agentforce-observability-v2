@@ -504,7 +504,42 @@ export const traces = [
             },
           },
           { span_id: 'span-002-reasoning', parent_span_id: 'span-002', name: 'Reasoning', kind: 'INTERNAL', start_time: 3373, duration: 27, status: 'OK', attributes: { 'operation.type': 'reasoning', 'reasoning.summary': 'Retrieved market data from 3/4 sources (Booking.com failed)' } },
+          // Sub-Agent Response: The actual output/data returned by the sub-agent
+          {
+            span_id: 'span-002-response',
+            parent_span_id: 'span-002',
+            name: 'Sub-Agent Response',
+            kind: 'INTERNAL',
+            start_time: 3300,
+            duration: 100,
+            status: 'OK',
+            attributes: {
+              'operation.type': 'agent-response',
+              'response.summary': 'Market data retrieved from Eventbrite, Yelp, and Reservations. Booking.com connection failed.',
+              'output.size': 5438, // Total bytes returned
+              'output.tokens': 1922, // Total tokens
+              'data.sources': ['Eventbrite', 'Yelp', 'Reservations'],
+              'data.failed_sources': ['Booking.com'],
+            },
+          },
         ],
+      },
+      // Primary Agent Synthesis: How the primary agent processes the sub-agent response
+      {
+        span_id: 'span-002-synthesis',
+        parent_span_id: 'span-001',
+        name: 'Primary Agent Synthesis: Market Data Agent Response',
+        kind: 'INTERNAL',
+        start_time: 3300,
+        duration: 200,
+        status: 'OK',
+        attributes: {
+          'operation.type': 'synthesis',
+          'synthesis.input': 'Market Data Agent response',
+          'synthesis.action': 'Processed market data, identified missing Booking.com data, prepared for risk scoring',
+          'synthesis.output.size': 2048,
+          'synthesis.output.tokens': 512,
+        },
       },
       {
         span_id: 'span-003',
@@ -551,7 +586,42 @@ export const traces = [
           { span_id: 'span-003-a2', parent_span_id: 'span-003', name: 'Action Selection', kind: 'INTERNAL', start_time: 1253, duration: 50, status: 'OK', attributes: { 'operation.type': 'action-selection', 'action.target': 'Risk Calculation' } },
           { span_id: 'span-003-calc', parent_span_id: 'span-003', name: 'Risk Calculation', kind: 'INTERNAL', start_time: 1303, duration: 1400, status: 'OK', attributes: { 'operation.type': 'calculation' } },
           { span_id: 'span-003-reasoning', parent_span_id: 'span-003', name: 'Reasoning', kind: 'INTERNAL', start_time: 2703, duration: 97, status: 'OK', attributes: { 'operation.type': 'reasoning', 'reasoning.summary': 'Portfolio risk score: 72/100 (Moderate-High)' } },
+          // Sub-Agent Response: The actual output/data returned by the Risk Scoring Agent
+          {
+            span_id: 'span-003-response',
+            parent_span_id: 'span-003',
+            name: 'Sub-Agent Response',
+            kind: 'INTERNAL',
+            start_time: 2800,
+            duration: 100,
+            status: 'OK',
+            attributes: {
+              'operation.type': 'agent-response',
+              'response.summary': 'Risk score calculated: 72/100 (Moderate-High risk)',
+              'output.size': 1024,
+              'output.tokens': 256,
+              'risk.score': 72,
+              'risk.level': 'Moderate-High',
+            },
+          },
         ],
+      },
+      // Primary Agent Synthesis: How the primary agent processes the Risk Scoring Agent response
+      {
+        span_id: 'span-003-synthesis',
+        parent_span_id: 'span-001',
+        name: 'Primary Agent Synthesis: Risk Scoring Agent Response',
+        kind: 'INTERNAL',
+        start_time: 2900,
+        duration: 200,
+        status: 'OK',
+        attributes: {
+          'operation.type': 'synthesis',
+          'synthesis.input': 'Risk Scoring Agent response (score: 72/100)',
+          'synthesis.action': 'Processed risk assessment, combined with market data, prepared for recommendation generation',
+          'synthesis.output.size': 3072,
+          'synthesis.output.tokens': 768,
+        },
       },
       {
         span_id: 'span-004',
@@ -597,7 +667,42 @@ export const traces = [
           { span_id: 'span-004-a2', parent_span_id: 'span-004', name: 'Action Selection', kind: 'INTERNAL', start_time: 3353, duration: 50, status: 'OK', attributes: { 'operation.type': 'action-selection', 'action.target': 'Generate Recommendations' } },
           { span_id: 'span-004-gen', parent_span_id: 'span-004', name: 'Generate Portfolio Recommendations', kind: 'INTERNAL', start_time: 3403, duration: 900, status: 'OK', attributes: { 'operation.type': 'generation' } },
           { span_id: 'span-004-reasoning', parent_span_id: 'span-004', name: 'Reasoning', kind: 'INTERNAL', start_time: 4303, duration: 497, status: 'OK', attributes: { 'operation.type': 'reasoning', 'reasoning.summary': 'Generated 3 buy recommendations, 2 hold, 1 sell' } },
+          // Sub-Agent Response: The actual output/data returned by the Recommendation Agent
+          {
+            span_id: 'span-004-response',
+            parent_span_id: 'span-004',
+            name: 'Sub-Agent Response',
+            kind: 'INTERNAL',
+            start_time: 4800,
+            duration: 100,
+            status: 'OK',
+            attributes: {
+              'operation.type': 'agent-response',
+              'response.summary': 'Generated personalized investment recommendations: 3 buy, 2 hold, 1 sell',
+              'output.size': 4096,
+              'output.tokens': 1024,
+              'recommendations.count': 6,
+              'recommendations.breakdown': { buy: 3, hold: 2, sell: 1 },
+            },
+          },
         ],
+      },
+      // Primary Agent Synthesis: How the primary agent processes the Recommendation Agent response
+      {
+        span_id: 'span-004-synthesis',
+        parent_span_id: 'span-001',
+        name: 'Primary Agent Synthesis: Recommendation Agent Response',
+        kind: 'INTERNAL',
+        start_time: 4900,
+        duration: 200,
+        status: 'OK',
+        attributes: {
+          'operation.type': 'synthesis',
+          'synthesis.input': 'Recommendation Agent response (6 recommendations)',
+          'synthesis.action': 'Formatted recommendations for user presentation, added context from market data and risk assessment',
+          'synthesis.output.size': 5120,
+          'synthesis.output.tokens': 1280,
+        },
       },
     ],
     agents: [

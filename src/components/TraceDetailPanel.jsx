@@ -26,6 +26,8 @@ import {
   Network,
   Brain,
   Loader2,
+  ArrowDownCircle,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { 
   formatDuration, 
@@ -1348,6 +1350,12 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
         return <Bot className="w-3.5 h-3.5 text-blue-500" />;
       case 'mcp':
         return <Wrench className="w-3.5 h-3.5 text-purple-600" />;
+      case 'agent-response':
+        // Sub-Agent Response: Shows the actual output/data returned by the sub-agent
+        return <ArrowDownCircle className="w-3.5 h-3.5 text-green-500" />;
+      case 'synthesis':
+        // Primary Agent Synthesis: Shows how the primary agent processes the sub-agent response
+        return <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-500" />;
       case 'grounded':
         return <FileText className="w-3.5 h-3.5 text-gray-500" />;
       case 'error':
