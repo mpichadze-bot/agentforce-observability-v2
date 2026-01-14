@@ -228,6 +228,8 @@ function getOrchestrationByMessage(trace) {
           name: agentName,
           startTime: span.start_time,
           duration: span.duration,
+          spanId: span.span_id,
+          span: span, // Keep reference to span for latency calculation
         });
       }
       
@@ -275,6 +277,70 @@ function getOrchestrationByMessage(trace) {
     return orchestrationByMessage;
   }
   
+  // Helper to calculate latency breakdown for a sub-agent span
+  const calculateLatencyBreakdown = (span, traceSpans) => {
+    const itemStartTime = span.start_time || 0;
+    const itemDuration = span.duration || 0;
+    
+    // Find the Action Selection that precedes this call
+    const findActionSelection = (spans) => {
+      let lastActionSelection = null;
+      const traverse = (spanList) => {
+        spanList.forEach(s => {
+          const isActionSelection = s.name === 'Action Selection' ||
+                                   s.attributes?.['action.selected'];
+          const sStartTime = s.start_time || 0;
+          const sEndTime = sStartTime + (s.duration || 0);
+          
+          if (isActionSelection && sEndTime <= itemStartTime) {
+            if (!lastActionSelection || sEndTime > lastActionSelection.endTime) {
+              lastActionSelection = {
+                startTime: sStartTime,
+                endTime: sEndTime,
+              };
+            }
+          }
+          
+          if (s.children) {
+            traverse(s.children);
+          }
+        });
+      };
+      traverse(spans);
+      return lastActionSelection;
+    };
+    
+    const actionSelection = findActionSelection(traceSpans);
+    
+    if (actionSelection) {
+      const routingOverhead = Math.max(0, itemStartTime - actionSelection.endTime);
+      const responseTime = itemDuration;
+      return {
+        routingOverhead,
+        responseTime,
+        totalTime: routingOverhead + responseTime,
+      };
+    }
+    
+    // Fallback: use handoff.latency if available
+    if (span.attributes?.['handoff.latency']) {
+      const handoffLatency = span.attributes['handoff.latency'];
+      let routingOverhead = 0;
+      if (handoffLatency > itemDuration) {
+        routingOverhead = Math.min(handoffLatency - itemDuration, itemDuration * 0.3);
+      } else {
+        routingOverhead = Math.min(itemDuration * 0.1, 200);
+      }
+      return {
+        routingOverhead: Math.max(0, routingOverhead),
+        responseTime: itemDuration,
+        totalTime: routingOverhead + itemDuration,
+      };
+    }
+    
+    return null;
+  };
+  
   // Distribute orchestration events across messages based on their timing
   // Find the time range of all orchestration events
   if (allOrchestration.length > 0) {
@@ -300,7 +366,12 @@ function getOrchestrationByMessage(trace) {
       if (event.type === 'subAgent') {
         const exists = orchestrationByMessage[messageIndex].subAgents.some(a => a.name === event.name);
         if (!exists) {
-          orchestrationByMessage[messageIndex].subAgents.push(event);
+          // Calculate latency breakdown for this sub-agent
+          const latencyBreakdown = event.span ? calculateLatencyBreakdown(event.span, trace.spans) : null;
+          orchestrationByMessage[messageIndex].subAgents.push({
+            ...event,
+            latencyBreakdown,
+          });
         }
       } else if (event.type === 'mcp') {
         const exists = orchestrationByMessage[messageIndex].mcps.some(m => m.name === event.name);
@@ -376,16 +447,33 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
                   Hello! Thank you for reaching out to Pronto Food Delivery support. I'd be happy to assist you with performance insights. Can I start by getting your user ID, please?
                 </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <div className="flex flex-col gap-1 mt-1">
                   <p className="text-[10px] text-gray-400">Agent (Complete: 5 sec)</p>
                   {/* Orchestration indicators for message 0 */}
                   {orchestrationByMessage[0] && (
-                    <>
+                    <div className="flex flex-col gap-1.5">
                       {orchestrationByMessage[0].subAgents.map((agent, idx) => (
-                        <span key={`sub-0-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
-                          <Bot className="w-2.5 h-2.5" />
-                          {agent.name}
-                        </span>
+                        <div key={`sub-0-${idx}`} className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
+                            <Bot className="w-2.5 h-2.5" />
+                            {agent.name}
+                          </span>
+                          {/* Latency breakdown for sub-agent */}
+                          {agent.latencyBreakdown && (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(agent.latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-blue-600 font-medium">
+                                S: {formatDuration(agent.latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(agent.latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                       {orchestrationByMessage[0].mcps.map((mcp, idx) => (
                         <span key={`mcp-0-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
@@ -393,7 +481,7 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                           {mcp.name}
                         </span>
                       ))}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -419,16 +507,33 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
                   Thank you for sharing your user ID, USER12345. Could you also let me know which Pronto product this inquiry is related to, or if it's a general issue?
                 </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <div className="flex flex-col gap-1 mt-1">
                   <p className="text-[10px] text-gray-400">Agent (Complete: 5 sec)</p>
                   {/* Orchestration indicators for message 1 */}
                   {orchestrationByMessage[1] && (
-                    <>
+                    <div className="flex flex-col gap-1.5">
                       {orchestrationByMessage[1].subAgents.map((agent, idx) => (
-                        <span key={`sub-1-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
-                          <Bot className="w-2.5 h-2.5" />
-                          {agent.name}
-                        </span>
+                        <div key={`sub-1-${idx}`} className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
+                            <Bot className="w-2.5 h-2.5" />
+                            {agent.name}
+                          </span>
+                          {/* Latency breakdown for sub-agent */}
+                          {agent.latencyBreakdown && (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(agent.latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-blue-600 font-medium">
+                                S: {formatDuration(agent.latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(agent.latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                       {orchestrationByMessage[1].mcps.map((mcp, idx) => (
                         <span key={`mcp-1-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
@@ -436,7 +541,7 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                           {mcp.name}
                         </span>
                       ))}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -462,16 +567,33 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
                   Got it! I'll assist you with insights related to the Restaurant Performance Analytics product. Feel free to ask your questions, and I'll provide as much detail as possible!
                 </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <div className="flex flex-col gap-1 mt-1">
                   <p className="text-[10px] text-gray-400">Agent (Complete: 8 sec)</p>
                   {/* Orchestration indicators for message 2 */}
                   {orchestrationByMessage[2] && (
-                    <>
+                    <div className="flex flex-col gap-1.5">
                       {orchestrationByMessage[2].subAgents.map((agent, idx) => (
-                        <span key={`sub-2-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
-                          <Bot className="w-2.5 h-2.5" />
-                          {agent.name}
-                        </span>
+                        <div key={`sub-2-${idx}`} className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
+                            <Bot className="w-2.5 h-2.5" />
+                            {agent.name}
+                          </span>
+                          {/* Latency breakdown for sub-agent */}
+                          {agent.latencyBreakdown && (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-amber-600 font-medium">
+                                R: {formatDuration(agent.latencyBreakdown.routingOverhead)}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-blue-600 font-medium">
+                                S: {formatDuration(agent.latencyBreakdown.responseTime)}
+                              </span>
+                              <span className="text-gray-400 font-mono">
+                                ({formatDuration(agent.latencyBreakdown.totalTime)})
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                       {orchestrationByMessage[2].mcps.map((mcp, idx) => (
                         <span key={`mcp-2-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
@@ -479,7 +601,7 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                           {mcp.name}
                         </span>
                       ))}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
