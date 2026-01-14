@@ -196,16 +196,14 @@ function TraceDetailPanel({ trace, onClose }) {
 }
 
 // Session Log Panel Component
-// Helper: Get sub-agents and MCPs invoked for a specific agent message
-function getOrchestrationInfo(trace, messageIndex) {
-  if (!trace.spans) return { subAgents: [], mcps: [] };
+// Helper: Get orchestration events mapped to message indices
+function getOrchestrationByMessage(trace) {
+  if (!trace.spans) return { 0: { subAgents: [], mcps: [] }, 1: { subAgents: [], mcps: [] }, 2: { subAgents: [], mcps: [] } };
   
-  const subAgentSet = new Set();
-  const mcpSet = new Set();
-  const subAgents = [];
-  const mcps = [];
+  const orchestrationByMessage = {};
+  const allOrchestration = [];
   
-  // Find agent spans and their orchestration
+  // Find all orchestration events
   const findOrchestration = (spans) => {
     spans.forEach(span => {
       // Check if this is a sub-agent (A2A handoff)
@@ -225,15 +223,12 @@ function getOrchestrationInfo(trace, messageIndex) {
           agentName = agentName.split(':')[0].trim();
         }
         
-        // Only add unique agents
-        if (!subAgentSet.has(agentName)) {
-          subAgentSet.add(agentName);
-          subAgents.push({
-            name: agentName,
-            startTime: span.start_time,
-            duration: span.duration,
-          });
-        }
+        allOrchestration.push({
+          type: 'subAgent',
+          name: agentName,
+          startTime: span.start_time,
+          duration: span.duration,
+        });
       }
       
       // Check if this is an MCP tool execution
@@ -251,15 +246,12 @@ function getOrchestrationInfo(trace, messageIndex) {
           toolName = toolName.split('.').pop();
         }
         
-        // Only add unique MCPs
-        if (!mcpSet.has(toolName)) {
-          mcpSet.add(toolName);
-          mcps.push({
-            name: toolName,
-            startTime: span.start_time,
-            duration: span.duration,
-          });
-        }
+        allOrchestration.push({
+          type: 'mcp',
+          name: toolName,
+          startTime: span.start_time,
+          duration: span.duration,
+        });
       }
       
       // Check nested spans
@@ -271,16 +263,60 @@ function getOrchestrationInfo(trace, messageIndex) {
   
   findOrchestration(trace.spans);
   
-  // Sort by start time to match message order
-  subAgents.sort((a, b) => a.startTime - b.startTime);
-  mcps.sort((a, b) => a.startTime - b.startTime);
+  // Sort by start time
+  allOrchestration.sort((a, b) => a.startTime - b.startTime);
   
-  return { subAgents, mcps };
+  // Initialize message buckets
+  orchestrationByMessage[0] = { subAgents: [], mcps: [] };
+  orchestrationByMessage[1] = { subAgents: [], mcps: [] };
+  orchestrationByMessage[2] = { subAgents: [], mcps: [] };
+  
+  if (allOrchestration.length === 0) {
+    return orchestrationByMessage;
+  }
+  
+  // Distribute orchestration events across messages based on their timing
+  // Find the time range of all orchestration events
+  if (allOrchestration.length > 0) {
+    const minTime = Math.min(...allOrchestration.map(e => e.startTime));
+    const maxTime = Math.max(...allOrchestration.map(e => e.startTime + e.duration));
+    const timeRange = maxTime - minTime;
+    
+    // Distribute events across 3 messages based on their relative timing
+    allOrchestration.forEach((event) => {
+      // Calculate relative position (0.0 to 1.0) in the orchestration timeline
+      const relativePosition = timeRange > 0 ? (event.startTime - minTime) / timeRange : 0;
+      
+      // Determine which message this event belongs to (0, 1, or 2)
+      let messageIndex = 0;
+      if (relativePosition >= 0.67) {
+        messageIndex = 2; // Last third (67-100%)
+      } else if (relativePosition >= 0.33) {
+        messageIndex = 1; // Middle third (33-67%)
+      }
+      // else messageIndex = 0 (first third 0-33%)
+      
+      // Add unique items only (check within the same message to avoid duplicates)
+      if (event.type === 'subAgent') {
+        const exists = orchestrationByMessage[messageIndex].subAgents.some(a => a.name === event.name);
+        if (!exists) {
+          orchestrationByMessage[messageIndex].subAgents.push(event);
+        }
+      } else if (event.type === 'mcp') {
+        const exists = orchestrationByMessage[messageIndex].mcps.some(m => m.name === event.name);
+        if (!exists) {
+          orchestrationByMessage[messageIndex].mcps.push(event);
+        }
+      }
+    });
+  }
+  
+  return orchestrationByMessage;
 }
 
 function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
-  // Get orchestration info for the trace
-  const orchestrationInfo = useMemo(() => getOrchestrationInfo(trace, 0), [trace]);
+  // Get orchestration info distributed across messages
+  const orchestrationByMessage = useMemo(() => getOrchestrationByMessage(trace), [trace]);
   
   return (
     <div className="flex flex-col h-full" key={trace.id}>
@@ -340,7 +376,26 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
                   Hello! Thank you for reaching out to Pronto Food Delivery support. I'd be happy to assist you with performance insights. Can I start by getting your user ID, please?
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Agent (Complete: 5 sec)</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <p className="text-[10px] text-gray-400">Agent (Complete: 5 sec)</p>
+                  {/* Orchestration indicators for message 0 */}
+                  {orchestrationByMessage[0] && (
+                    <>
+                      {orchestrationByMessage[0].subAgents.map((agent, idx) => (
+                        <span key={`sub-0-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
+                          <Bot className="w-2.5 h-2.5" />
+                          {agent.name}
+                        </span>
+                      ))}
+                      {orchestrationByMessage[0].mcps.map((mcp, idx) => (
+                        <span key={`mcp-0-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
+                          <Wrench className="w-2.5 h-2.5" />
+                          {mcp.name}
+                        </span>
+                      ))}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -364,8 +419,25 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 <div className="inline-block px-4 py-2 bg-white border border-gray-200 rounded-2xl rounded-tl-sm max-w-[85%] text-sm text-gray-700 shadow-sm">
                   Thank you for sharing your user ID, USER12345. Could you also let me know which Pronto product this inquiry is related to, or if it's a general issue?
                 </div>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <p className="text-[10px] text-gray-400">Agent (Complete: 5 sec)</p>
+                  {/* Orchestration indicators for message 1 */}
+                  {orchestrationByMessage[1] && (
+                    <>
+                      {orchestrationByMessage[1].subAgents.map((agent, idx) => (
+                        <span key={`sub-1-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
+                          <Bot className="w-2.5 h-2.5" />
+                          {agent.name}
+                        </span>
+                      ))}
+                      {orchestrationByMessage[1].mcps.map((mcp, idx) => (
+                        <span key={`mcp-1-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
+                          <Wrench className="w-2.5 h-2.5" />
+                          {mcp.name}
+                        </span>
+                      ))}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -392,26 +464,22 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <p className="text-[10px] text-gray-400">Agent (Complete: 8 sec)</p>
-                  {/* Show orchestration indicators if any sub-agents or MCPs were used */}
-                  {orchestrationInfo.subAgents.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      {orchestrationInfo.subAgents.map((agent, idx) => (
-                        <span key={`sub-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
+                  {/* Orchestration indicators for message 2 */}
+                  {orchestrationByMessage[2] && (
+                    <>
+                      {orchestrationByMessage[2].subAgents.map((agent, idx) => (
+                        <span key={`sub-2-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded border border-blue-200" title={`Orchestrated to sub-agent: ${agent.name}`}>
                           <Bot className="w-2.5 h-2.5" />
                           {agent.name}
                         </span>
                       ))}
-                    </div>
-                  )}
-                  {orchestrationInfo.mcps.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      {orchestrationInfo.mcps.map((mcp, idx) => (
-                        <span key={`mcp-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
+                      {orchestrationByMessage[2].mcps.map((mcp, idx) => (
+                        <span key={`mcp-2-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded border border-purple-200" title={`Used MCP tool: ${mcp.name}`}>
                           <Wrench className="w-2.5 h-2.5" />
                           {mcp.name}
                         </span>
                       ))}
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
