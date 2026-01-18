@@ -132,9 +132,9 @@ function App() {
                   <Bell className="w-4 h-4 text-gray-600" />
                 </button>
                 <div className="flex items-center gap-1 border-l border-gray-200 pl-2 ml-1">
-                  <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
-                    <User className="w-5 h-5 text-gray-600" />
-                  </button>
+                <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
+                  <User className="w-5 h-5 text-gray-600" />
+                </button>
                   <button 
                     onClick={handleLogout}
                     className="p-2 hover:bg-gray-100 rounded transition-colors"
@@ -222,9 +222,9 @@ function App() {
               <Bell className="w-4 h-4 text-gray-600" />
             </button>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-2 ml-1">
-              <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
-                <User className="w-5 h-5 text-gray-600" />
-              </button>
+            <button className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
+              <User className="w-5 h-5 text-gray-600" />
+            </button>
               <button 
                 onClick={handleLogout}
                 className="p-2 hover:bg-gray-100 rounded transition-colors"
@@ -787,8 +787,8 @@ function getMCPCount(trace) {
   
   trace.spans.forEach(span => checkSpan(span));
   return count;
-}
-
+  }
+  
 // Helper: Extract topics from trace
 function extractTopics(trace) {
   const topics = [];

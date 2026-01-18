@@ -861,7 +861,7 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                           <div className={`flex items-center gap-1 ${hasErrors ? 'text-red-600' : 'text-gray-400'}`}>
                             <CornerDownRight className="w-3 h-3" />
                             <span className="text-[10px]">Response</span>
-                          </div>
+              </div>
                           {latencyBreakdown ? (
                             <div className="flex items-center gap-1 text-[10px]">
                               <span className="text-amber-600 font-medium">
@@ -874,7 +874,7 @@ function SessionLogPanel({ sessionLog, trace, sessionDate, onMessageClick }) {
                               <span className="text-gray-400 font-mono">
                                 ({formatDuration(latencyBreakdown.totalTime)})
                               </span>
-                            </div>
+            </div>
                           ) : (
                             <span className={`text-[10px] ${hasErrors ? 'text-red-400' : 'text-gray-400'}`}>(Complete: 8 sec)</span>
                           )}
@@ -1688,9 +1688,9 @@ function TraceItem({ item, index, isExpanded, isSelected, onToggle, onSelect, de
             );
           }
           return (
-            <span className="text-xs text-gray-400 font-mono ml-auto pr-3 flex-shrink-0">
-              {formatDuration(item.duration)}
-            </span>
+        <span className="text-xs text-gray-400 font-mono ml-auto pr-3 flex-shrink-0">
+          {formatDuration(item.duration)}
+        </span>
           );
         })()}
 
